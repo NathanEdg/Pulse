@@ -251,24 +251,40 @@ export function KanbanBoard({ columns: initialColumns, onColumnsChange, onTaskCl
     const overId = over.id as string
 
     const activeColumn = columns.find((col) => col.tasks.some((task) => task.id === activeId))
+    const overColumn = columns.find((col) => col.id === overId || col.tasks.some((task) => task.id === overId))
 
-    if (!activeColumn) return
+    if (!activeColumn || !overColumn) return
+
+    // Only allow sorting if the task is moved to a different column
+    // Prevent sorting within the same column
+    if (activeColumn.id === overColumn.id) return
 
     const activeIndex = activeColumn.tasks.findIndex((t) => t.id === activeId)
-    const overIndex = activeColumn.tasks.findIndex((t) => t.id === overId)
+    const overIndex = overColumn.tasks.findIndex((t) => t.id === overId)
 
-    if (activeIndex !== overIndex && activeIndex !== -1 && overIndex !== -1) {
+    if (activeIndex !== -1) {
       setColumns((columns) => {
-        const newColumns = columns.map((col) => {
+        const newActiveItems = activeColumn.tasks.filter((t) => t.id !== activeId)
+        const newOverItems = [...overColumn.tasks]
+        const [movedItem] = activeColumn.tasks.splice(activeIndex, 1)
+
+        if (overId === overColumn.id) {
+          newOverItems.push(movedItem)
+        } else if (overIndex !== -1) {
+          newOverItems.splice(overIndex, 0, movedItem)
+        } else {
+          newOverItems.push(movedItem)
+        }
+
+        return columns.map((col) => {
           if (col.id === activeColumn.id) {
-            return {
-              ...col,
-              tasks: arrayMove(col.tasks, activeIndex, overIndex),
-            }
+            return { ...col, tasks: newActiveItems }
+          }
+          if (col.id === overColumn.id) {
+            return { ...col, tasks: newOverItems }
           }
           return col
         })
-        return newColumns
       })
     }
   }

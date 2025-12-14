@@ -47,11 +47,54 @@ CREATE TABLE "verification" (
 	"updated_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "team" (
+	"id" text PRIMARY KEY NOT NULL,
+	"program_id" text NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"lead_id" text NOT NULL,
+	"colead_id" text NOT NULL,
+	"created_at" timestamp NOT NULL,
+	"updated_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "program" (
+	"id" text PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"active" boolean NOT NULL,
+	"created_at" timestamp NOT NULL,
+	"updated_at" timestamp NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "cycle" (
+	"id" text PRIMARY KEY NOT NULL,
+	"program_id" text NOT NULL,
+	"cycle_number" text NOT NULL,
+	"start_date" timestamp NOT NULL,
+	"end_date" timestamp NOT NULL,
+	"goal" text NOT NULL,
+	"status" "cycle_status" NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "project" (
+	"id" text PRIMARY KEY NOT NULL,
+	"program_id" text NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"lead_id" text NOT NULL,
+	"sort_order" integer NOT NULL,
+	"color" text,
+	"created_at" timestamp NOT NULL,
+	"updated_at" timestamp NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "task" (
 	"id" text PRIMARY KEY NOT NULL,
 	"program_id" text NOT NULL,
 	"cycle_id" text NOT NULL,
 	"project_id" text NOT NULL,
+	"team_id" text,
 	"title" text NOT NULL,
 	"description" text,
 	"lead_id" text NOT NULL,
@@ -100,29 +143,13 @@ CREATE TABLE "task_status" (
 	"updated_at" timestamp NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "cycle" (
-	"id" text PRIMARY KEY NOT NULL,
-	"program_id" text NOT NULL,
-	"cycle_number" text NOT NULL,
-	"start_date" timestamp NOT NULL,
-	"end_date" timestamp NOT NULL,
-	"goal" text NOT NULL,
-	"status" "cycle_status" NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "program" (
-	"id" text PRIMARY KEY NOT NULL,
-	"name" text NOT NULL,
-	"description" text,
-	"active" boolean NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL
-);
---> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team" ADD CONSTRAINT "team_program_id_program_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."program"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team" ADD CONSTRAINT "team_lead_id_user_id_fk" FOREIGN KEY ("lead_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team" ADD CONSTRAINT "team_colead_id_user_id_fk" FOREIGN KEY ("colead_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cycle" ADD CONSTRAINT "cycle_program_id_program_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."program"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_assignee" ADD CONSTRAINT "task_assignee_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_assignee" ADD CONSTRAINT "task_assignee_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_dependency" ADD CONSTRAINT "task_dependency_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_dependency" ADD CONSTRAINT "task_dependency_dependency_id_task_id_fk" FOREIGN KEY ("dependency_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "cycle" ADD CONSTRAINT "cycle_program_id_program_id_fk" FOREIGN KEY ("program_id") REFERENCES "public"."program"("id") ON DELETE no action ON UPDATE no action;
+ALTER TABLE "task_dependency" ADD CONSTRAINT "task_dependency_dependency_id_task_id_fk" FOREIGN KEY ("dependency_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;

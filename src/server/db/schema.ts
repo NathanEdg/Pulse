@@ -1,10 +1,13 @@
 import { relations } from "drizzle-orm";
-import {
-  boolean,
-  pgTable,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { team_member } from "./teams";
+
+// Export tables from other schema files
+export * from "./teams";
+export * from "./programs";
+export * from "./cycles";
+export * from "./projects";
+export * from "./tasks";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -69,6 +72,7 @@ export const verification = pgTable("verification", {
 export const userRelations = relations(user, ({ many }) => ({
   account: many(account),
   session: many(session),
+  teamMembers: many(team_member),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({

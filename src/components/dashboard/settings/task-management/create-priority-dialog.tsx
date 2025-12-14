@@ -1,19 +1,15 @@
 "use client";
 
-import * as React from "react";
+import { z } from "zod";
+import { CreateDialog } from "@/components/util/dialogs/create-dialog";
+import { ColorPicker } from "@/components/util/dialogs/custom/color-picker";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+const prioritySchema = z.object({
+  name: z.string().min(1, "Priority name is required"),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i, "Invalid color format"),
+  order: z.number().min(1, "Order must be at least 1"),
+  description: z.string().optional(),
+});
 
 interface CreatePriorityDialogProps {
   open: boolean;
@@ -31,103 +27,47 @@ export function CreatePriorityDialog({
   onOpenChange,
   onSubmit,
 }: CreatePriorityDialogProps) {
-  const [name, setName] = React.useState("");
-  const [color, setColor] = React.useState("#EF4444");
-  const [description, setDescription] = React.useState("");
-  const [order, setOrder] = React.useState<number>(1);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-
-  const resetForm = React.useCallback(() => {
-    setName("");
-    setColor("#EF4444");
-    setDescription("");
-    setOrder(1);
-  }, []);
-
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      resetForm();
-    }
-    onOpenChange(nextOpen);
-  };
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!name.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      await onSubmit({
-        name: name.trim(),
-        color: color.trim(),
-        description: description.trim(),
-        order,
-      });
-      resetForm();
-      onOpenChange(false);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = async (data: z.infer<typeof prioritySchema>) => {
+    await onSubmit({
+      name: data.name,
+      color: data.color,
+      description: data.description ?? "",
+      order: data.order,
+    });
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create Priority</DialogTitle>
-          <DialogDescription>
-            Define a new priority with a label, color, and order.
-          </DialogDescription>
-        </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit}>
-          <div className="space-y-2">
-            <Label htmlFor="priority-name">Name</Label>
-            <Input
-              id="priority-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="High Priority"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="priority-color">Color</Label>
-            <Input
-              id="priority-color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="priority-order">Order</Label>
-            <Input
-              id="priority-order"
-              type="number"
-              min={1}
-              value={order}
-              onChange={(e) => setOrder(Number(e.target.value) || 1)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="priority-description">Description</Label>
-            <Textarea
-              id="priority-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="When should this priority be used?"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <CreateDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Create Priority"
+      description="Define a new priority with a label, color, and order."
+      schema={prioritySchema}
+      onSubmit={handleSubmit}
+      defaultValues={{
+        color: "#EF4444",
+        order: 1,
+      }}
+      fieldConfigs={{
+        name: {
+          label: "Name",
+          placeholder: "High Priority",
+        },
+        color: {
+          label: "Color",
+          component: ColorPicker,
+          description: "Choose a color to represent this priority",
+        },
+        order: {
+          label: "Order",
+          placeholder: "1",
+          description: "Display order in priority lists",
+        },
+        description: {
+          label: "Description",
+          placeholder: "When should this priority be used?",
+        },
+      }}
+    />
   );
 }

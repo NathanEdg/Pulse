@@ -1,5 +1,3 @@
-import { create } from "domain";
-import { relations } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -9,8 +7,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-
-export const createTable = pgTableCreator((name) => `pg-drizzle_${name}`);
 
 export const project = pgTable("project", {
   id: text("id").primaryKey(),
@@ -27,4 +23,3 @@ export const project = pgTable("project", {
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
-

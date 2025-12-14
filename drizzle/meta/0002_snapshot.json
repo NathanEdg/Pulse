@@ -1,6 +1,6 @@
 {
-  "id": "cd76e21e-dec0-45b9-87ac-a519e8a25263",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "08923f05-5649-4cde-83d9-91c4e596fcb8",
+  "prevId": "a38a0467-0f75-405d-ae12-9e84701049ec",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -332,15 +332,39 @@
           "primaryKey": false,
           "notNull": false
         },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "lead_id": {
           "name": "lead_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "colead_id": {
           "name": "colead_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "members": {
+          "name": "members",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "private": {
+          "name": "private",
+          "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
