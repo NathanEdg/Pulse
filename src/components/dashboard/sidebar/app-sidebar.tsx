@@ -11,15 +11,30 @@ import {
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import {
-  Binoculars, BriefcaseBusiness, Calendar, ChartNoAxesGantt,
-  CheckSquare, Code,
-  Hammer, Handshake,
-  Home, Inbox, Kanban,
-  LayoutDashboard, ListTree,
-  MessageSquare, NotepadText,
-  PieChart, RefreshCcw, RefreshCcwDot,
+  Binoculars,
+  BriefcaseBusiness,
+  Calendar,
+  ChartNoAxesGantt,
+  CheckSquare,
+  Clock,
+  Code,
+  Hammer,
+  Handshake,
+  Home,
+  Inbox,
+  Kanban,
+  LayoutDashboard,
+  ListTree,
+  MessageSquare,
+  NotepadText,
+  PieChart,
+  RefreshCcw,
+  RefreshCcwDot,
   Settings,
-  Users, View, Zap, Plus,
+  Users,
+  View,
+  Zap,
+  Plus,
 } from "lucide-react";
 
 import type { NavigationSection } from "./nav-main";
@@ -99,7 +114,7 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
+          },
         ],
       },
       {
@@ -128,7 +143,7 @@ export const defaultSections: NavigationSection[] = [
         subs: [
           {
             title: "Kanban",
-            icon: <Kanban className={'size-4'} />,
+            icon: <Kanban className={"size-4"} />,
             link: "#",
           },
           {
@@ -138,15 +153,15 @@ export const defaultSections: NavigationSection[] = [
           },
           {
             title: "Calendar",
-            icon: <Calendar className={'size-4'} />,
+            icon: <Calendar className={"size-4"} />,
             link: "#",
           },
           {
             title: "List",
             icon: <ListTree className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "insights",
@@ -185,10 +200,10 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
-      }
-    ]
+          },
+        ],
+      },
+    ],
   },
   {
     id: "teams",
@@ -221,8 +236,8 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "programming",
@@ -249,8 +264,8 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "electrical",
@@ -277,8 +292,8 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "strategy",
@@ -305,8 +320,8 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "e-team",
@@ -333,8 +348,8 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
       {
         id: "ops",
@@ -361,10 +376,10 @@ export const defaultSections: NavigationSection[] = [
             title: "Views",
             icon: <View className="size-4" />,
             link: "#",
-          }
-        ]
+          },
+        ],
       },
-    ]
+    ],
   },
   {
     id: "admin",
@@ -374,7 +389,7 @@ export const defaultSections: NavigationSection[] = [
         id: "settings",
         title: "Settings",
         icon: <Settings className="size-4" />,
-        link: "#"
+        link: "#",
       },
     ],
   },
@@ -391,7 +406,7 @@ export function DashboardSidebar() {
           "flex md:pt-3.5",
           isCollapsed
             ? "flex-row items-center justify-between gap-y-4 md:flex-col md:items-start md:justify-start"
-            : "flex-row items-center justify-between"
+            : "flex-row items-center justify-between",
         )}
       >
         <a href="#" className="flex items-center gap-2">
@@ -407,7 +422,7 @@ export function DashboardSidebar() {
           key={isCollapsed ? "header-collapsed" : "header-expanded"}
           className={cn(
             "flex items-center gap-2",
-            isCollapsed ? "flex-row md:flex-col-reverse" : "flex-row"
+            isCollapsed ? "flex-row md:flex-col-reverse" : "flex-row",
           )}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

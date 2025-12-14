@@ -5,7 +5,8 @@ import { Figtree, Geist, Geist_Mono } from "next/font/google";
 
 import { TRPCReactProvider } from "@/trpc/react";
 import { Toaster } from "sonner";
-import { NuqsAdapter } from 'nuqs/adapters/next/app'
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { ThemeProvider } from "next-themes";
 
 export const metadata: Metadata = {
   title: "Create T3 App",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
+const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,19 +25,21 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-  
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${figtree.variable}`}>
       <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        >
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
         <TRPCReactProvider>
           <NuqsAdapter>
-            {children}
-            <Toaster /> 
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              {children}
+            </ThemeProvider>
+            <Toaster />
           </NuqsAdapter>
         </TRPCReactProvider>
       </body>
