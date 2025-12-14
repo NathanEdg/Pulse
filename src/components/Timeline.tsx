@@ -64,9 +64,15 @@ const HEADER_HEIGHT = 48; // Height of the timeline header
 export default function Timeline({
   tasks = [],
   cycles = [],
+  onTaskMove,
+  onDependencyAdd,
+  onDependencyRemove,
 }: {
   tasks?: Task[];
   cycles?: Cycle[];
+  onTaskMove?: (task: Task) => void;
+  onDependencyAdd?: (sourceId: string, targetId: string) => void;
+  onDependencyRemove?: (sourceId: string, targetId: string) => void;
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -99,6 +105,8 @@ export default function Timeline({
     startDate: Date;
     endDate: Date;
     type: "move" | "resize-left" | "resize-right";
+    isCtrlPressed: boolean;
+    isShiftPressed: boolean;
   } | null>(null);
 
   const [dependencyDrag, setDependencyDrag] = useState<{
@@ -275,6 +283,7 @@ export default function Timeline({
     const scheduledTasks = autoSchedule(updatedTasks);
     setLocalTasks(scheduledTasks);
     toast.success("Dependency created");
+    onDependencyAdd?.(sourceId, targetId);
   };
 
   const handleRemoveDependency = (sourceId: string, targetId: string) => {
@@ -290,6 +299,7 @@ export default function Timeline({
     setLocalTasks(updatedTasks);
     setDependencyPopup(null);
     toast.success("Dependency removed");
+    onDependencyRemove?.(sourceId, targetId);
   };
 
   // Initial scroll positioning
@@ -410,6 +420,92 @@ export default function Timeline({
     };
   }, [pixelsPerDay]);
 
+  const successorMap = useMemo(() => {
+    const map = new Map<string, string[]>();
+    localTasks.forEach((t) => {
+      t.depends_on?.forEach((depId) => {
+        if (!map.has(depId)) map.set(depId, []);
+        map.get(depId)!.push(t.id);
+      });
+    });
+    return map;
+  }, [localTasks]);
+
+  const derivedTasks = useMemo(() => {
+    if (!dragState) return localTasks;
+
+    const deltaX = dragState.currentMouseX - dragState.initialMouseX;
+    const daysShift = Math.round(deltaX / pixelsPerDay);
+
+    if (daysShift === 0) return localTasks;
+
+    if (dragState.isShiftPressed && dragState.type === "move") {
+      const connectedTasks = new Set<string>();
+      const stack = [dragState.taskId];
+      const taskLookup = new Map(localTasks.map((t) => [t.id, t]));
+
+      while (stack.length) {
+        const id = stack.pop()!;
+        if (connectedTasks.has(id)) continue;
+        connectedTasks.add(id);
+
+        // Add successors
+        const successors = successorMap.get(id) || [];
+        for (const s of successors) {
+          if (!connectedTasks.has(s)) stack.push(s);
+        }
+
+        // Add predecessors
+        const task = taskLookup.get(id);
+        if (task?.depends_on) {
+          for (const p of task.depends_on) {
+            if (!connectedTasks.has(p)) stack.push(p);
+          }
+        }
+      }
+
+      const tasksWithDrag = localTasks.map((t) => {
+        if (connectedTasks.has(t.id)) {
+          const newStart = addDays(t.start_date!, daysShift);
+          const newEnd = addDays(t.due_date!, daysShift);
+          return { ...t, start_date: newStart, due_date: newEnd };
+        }
+        return t;
+      });
+      return autoSchedule(tasksWithDrag);
+    }
+
+    const tasksWithDrag = localTasks.map((t) => {
+      if (t.id === dragState.taskId) {
+        let newStart = dragState.startDate;
+        let newEnd = dragState.endDate;
+
+        if (dragState.type === "move") {
+          newStart = addDays(dragState.startDate, daysShift);
+          newEnd = addDays(dragState.endDate, daysShift);
+        } else if (dragState.type === "resize-left") {
+          newStart = addDays(dragState.startDate, daysShift);
+          if (newStart > newEnd) newStart = newEnd;
+        } else if (dragState.type === "resize-right") {
+          newEnd = addDays(dragState.endDate, daysShift);
+          if (newEnd < newStart) newEnd = newStart;
+        }
+        return { ...t, start_date: newStart, due_date: newEnd };
+      }
+      return t;
+    });
+
+    if (dragState.isCtrlPressed) {
+      const reversed = reverseAutoSchedule(
+        tasksWithDrag,
+        new Set([dragState.taskId]),
+      );
+      return autoSchedule(reversed);
+    }
+
+    return autoSchedule(tasksWithDrag);
+  }, [localTasks, dragState, pixelsPerDay, successorMap]);
+
   // Drag Event Listeners
   useEffect(() => {
     if (!dragState && !dependencyDrag) return;
@@ -418,7 +514,12 @@ export default function Timeline({
       if (dragState) {
         setDragState((prev) => {
           if (!prev) return null;
-          return { ...prev, currentMouseX: e.clientX };
+          return {
+            ...prev,
+            currentMouseX: e.clientX,
+            isCtrlPressed: e.ctrlKey || e.metaKey,
+            isShiftPressed: e.shiftKey,
+          };
         });
       }
       if (dependencyDrag) {
@@ -443,49 +544,26 @@ export default function Timeline({
       }
     };
 
-    const handleWindowMouseUp = (e: MouseEvent) => {
+    const handleWindowMouseUp = () => {
       if (dependencyDrag) {
         setDependencyDrag(null);
       }
 
       if (dragState) {
-        const deltaX = dragState.currentMouseX - dragState.initialMouseX;
-        const daysShift = Math.round(deltaX / pixelsPerDay);
+        setLocalTasks(derivedTasks);
 
-        if (daysShift !== 0) {
-          setLocalTasks((prev) => {
-            const updatedTasks = prev.map((t) => {
-              if (t.id === dragState.taskId) {
-                let newStart = dragState.startDate;
-                let newEnd = dragState.endDate;
+        derivedTasks.forEach((newTask) => {
+          const oldTask = localTasks.find((t) => t.id === newTask.id);
+          if (!oldTask) return;
 
-                if (dragState.type === "move") {
-                  newStart = addDays(dragState.startDate, daysShift);
-                  newEnd = addDays(dragState.endDate, daysShift);
-                } else if (dragState.type === "resize-left") {
-                  newStart = addDays(dragState.startDate, daysShift);
-                  if (newStart > newEnd) newStart = newEnd;
-                } else if (dragState.type === "resize-right") {
-                  newEnd = addDays(dragState.endDate, daysShift);
-                  if (newEnd < newStart) newEnd = newStart;
-                }
+          const hasChanged =
+            newTask.start_date?.getTime() !== oldTask.start_date?.getTime() ||
+            newTask.due_date?.getTime() !== oldTask.due_date?.getTime();
 
-                return { ...t, start_date: newStart, due_date: newEnd };
-              }
-              return t;
-            });
-
-            if (e.ctrlKey || e.metaKey) {
-              const reversed = reverseAutoSchedule(
-                updatedTasks,
-                new Set([dragState.taskId]),
-              );
-              return autoSchedule(reversed);
-            }
-
-            return autoSchedule(updatedTasks);
-          });
-        }
+          if (hasChanged) {
+            onTaskMove?.(newTask);
+          }
+        });
       }
       setDragState(null);
     };
@@ -497,7 +575,7 @@ export default function Timeline({
       window.removeEventListener("mousemove", handleWindowMouseMove);
       window.removeEventListener("mouseup", handleWindowMouseUp);
     };
-  }, [dragState, dependencyDrag, pixelsPerDay]);
+  }, [dragState, dependencyDrag, pixelsPerDay, derivedTasks]);
 
   // Mouse Move for Cursor
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -530,33 +608,11 @@ export default function Timeline({
     );
   }, [months, pixelsPerDay]);
 
-  const getTaskCurrentDates = (task: Task) => {
-    let start = task.start_date!;
-    let end = task.due_date!;
-
-    if (dragState && dragState.taskId === task.id) {
-      const deltaX = dragState.currentMouseX - dragState.initialMouseX;
-      const daysShift = Math.round(deltaX / pixelsPerDay);
-
-      if (dragState.type === "move") {
-        start = addDays(dragState.startDate, daysShift);
-        end = addDays(dragState.endDate, daysShift);
-      } else if (dragState.type === "resize-left") {
-        start = addDays(dragState.startDate, daysShift);
-        if (start > end) start = end;
-      } else if (dragState.type === "resize-right") {
-        end = addDays(dragState.endDate, daysShift);
-        if (end < start) end = start;
-      }
-    }
-    return { start, end };
-  };
-
   const taskMap = useMemo(() => {
     const map = new Map<string, { index: number; task: Task }>();
-    localTasks.forEach((t, i) => map.set(t.id, { index: i, task: t }));
+    derivedTasks.forEach((t, i) => map.set(t.id, { index: i, task: t }));
     return map;
-  }, [localTasks]);
+  }, [derivedTasks]);
 
   return (
     <motion.div
@@ -575,7 +631,7 @@ export default function Timeline({
           className="flex-1 overflow-hidden pt-4" // Added padding top for task spacing
         >
           <AnimatePresence>
-            {localTasks.map((t) => (
+            {derivedTasks.map((t) => (
               <motion.div
                 key={t.id}
                 initial={{ opacity: 0, x: -20 }}
@@ -667,21 +723,16 @@ export default function Timeline({
               className="pointer-events-none absolute top-0 left-0 z-0 h-full w-full"
               style={{ top: HEADER_HEIGHT }}
             >
-              {localTasks.map((targetTask) =>
+              {derivedTasks.map((targetTask) =>
                 targetTask.depends_on?.map((sourceId) => {
                   const source = taskMap.get(sourceId);
                   const target = taskMap.get(targetTask.id);
                   if (!source || !target) return null;
 
-                  const { end: sourceEnd } = getTaskCurrentDates(source.task);
-                  const { start: targetStart } = getTaskCurrentDates(
-                    target.task,
-                  );
-
-                  const sourceX = getDateX(sourceEnd);
+                  const sourceX = getDateX(source.task.due_date!);
                   const sourceY =
                     source.index * ROW_HEIGHT + ROW_HEIGHT / 2 + 16; // +16 for padding top
-                  const targetX = getDateX(targetStart);
+                  const targetX = getDateX(target.task.start_date!);
                   const targetY =
                     target.index * ROW_HEIGHT + ROW_HEIGHT / 2 + 16;
 
@@ -750,7 +801,7 @@ export default function Timeline({
             <div className="pointer-events-none relative z-10 pt-4">
               {" "}
               {/* Added padding top to match sidebar */}
-              {localTasks.map((t) => {
+              {derivedTasks.map((t) => {
                 const startDate = t.start_date
                   ? new Date(t.start_date)
                   : new Date();
@@ -765,18 +816,13 @@ export default function Timeline({
                 let width = Math.max(getDateX(end) - left, pixelsPerDay);
 
                 const isDragging = dragState?.taskId === t.id;
-                let displayStart = start;
-                let displayEnd = end;
 
                 if (isDragging && dragState) {
                   const deltaX =
                     dragState.currentMouseX - dragState.initialMouseX;
-                  const daysShift = Math.round(deltaX / pixelsPerDay);
 
                   if (dragState.type === "move") {
                     left = dragState.initialTaskLeft + deltaX;
-                    displayStart = addDays(start, daysShift);
-                    displayEnd = addDays(end, daysShift);
                   } else if (dragState.type === "resize-left") {
                     const newWidth = Math.max(
                       dragState.initialTaskWidth - deltaX,
@@ -786,15 +832,11 @@ export default function Timeline({
                       dragState.initialTaskLeft +
                       (dragState.initialTaskWidth - newWidth);
                     width = newWidth;
-                    displayStart = addDays(start, daysShift);
-                    if (displayStart > end) displayStart = end;
                   } else if (dragState.type === "resize-right") {
                     width = Math.max(
                       dragState.initialTaskWidth + deltaX,
                       pixelsPerDay,
                     );
-                    displayEnd = addDays(end, daysShift);
-                    if (displayEnd < start) displayEnd = start;
                   }
                 }
 
@@ -836,6 +878,8 @@ export default function Timeline({
                           startDate: start,
                           endDate: end,
                           type: "move",
+                          isCtrlPressed: e.ctrlKey || e.metaKey,
+                          isShiftPressed: e.shiftKey,
                         });
                       }}
                       onMouseUp={(e) => {
@@ -924,6 +968,8 @@ export default function Timeline({
                             startDate: start,
                             endDate: end,
                             type: "resize-left",
+                            isCtrlPressed: e.ctrlKey || e.metaKey,
+                            isShiftPressed: e.shiftKey,
                           });
                         }}
                       />
@@ -943,14 +989,16 @@ export default function Timeline({
                             startDate: start,
                             endDate: end,
                             type: "resize-right",
+                            isCtrlPressed: e.ctrlKey || e.metaKey,
+                            isShiftPressed: e.shiftKey,
                           });
                         }}
                       />
 
                       {isDragging && (
                         <div className="bg-background text-foreground border-border absolute -top-10 left-1/2 z-50 -translate-x-1/2 rounded border px-2 py-1 text-xs whitespace-nowrap shadow-md">
-                          {format(displayStart, "EEE, MMM d")} -{" "}
-                          {format(displayEnd, "EEE, MMM d")}
+                          {format(start, "EEE, MMM d")} -{" "}
+                          {format(end, "EEE, MMM d")}
                         </div>
                       )}
                       <span className="text-foreground/80 group-hover:text-foreground pointer-events-none absolute -top-5 left-0 px-1 text-[10px] font-semibold whitespace-nowrap transition-colors">
@@ -1027,6 +1075,27 @@ export default function Timeline({
           </div>
         </PopoverContent>
       </Popover>
+
+      {/* Drag Help Bar */}
+      <AnimatePresence>
+        {dragState && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="bg-foreground/90 text-background fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full px-6 py-2 text-sm font-medium shadow-lg backdrop-blur-sm"
+          >
+            <span className="mr-4">
+              Hold <kbd className="bg-background/20 rounded px-1">Ctrl</kbd> to
+              push predecessors
+            </span>
+            <span>
+              Hold <kbd className="bg-background/20 rounded px-1">Shift</kbd> to
+              move chain
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
