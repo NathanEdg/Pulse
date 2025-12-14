@@ -28,10 +28,26 @@ export const task = pgTable("task", {
   depends_on: text("depends_on").array().notNull(),
   start_date: timestamp("start_date"),
   due_date: timestamp("due_date"),
+  subtasks_ids: text("subtasks_ids").array().notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   updatedAt: timestamp("updated_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+export const taskUpdate = pgTable("task_update", {
+  id: text("id").primaryKey(),
+  task_id: text("task_id")
+    .notNull()
+    .references(() => task.id, { onDelete: "cascade" }),
+  user_id: text("user_id")
+    .notNull()
+    .references(() => user.id),
+  update_type: text("update_type").notNull(),
+  content: text("content").notNull(), // json
+  createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
 });
@@ -52,33 +68,33 @@ export const taskDependency = pgTable(
 );
 
 export const taskStatus = pgTable("task_status", {
-    id: text("id").primaryKey(),
-    name: text("name").notNull(),
-    program_id: text("program_id").notNull(),
-    color: text("color").notNull(),
-    sort_order: text("sort_order").notNull(),
-    description: text("description"),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => /* @__PURE__ */ new Date())
-      .notNull(),
-    updatedAt: timestamp("updated_at")
-      .$defaultFn(() => /* @__PURE__ */ new Date())
-      .notNull(),
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  program_id: text("program_id").notNull(),
+  color: text("color").notNull(),
+  sort_order: text("sort_order").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
 });
 
 export const taskPriority = pgTable("task_priority", {
-    id: text("id").primaryKey(),
-    name: text("name").notNull(),
-    program_id: text("program_id").notNull(),
-    color: text("color").notNull(),
-    sort_order: text("sort_order").notNull(),
-    description: text("description"),
-    createdAt: timestamp("created_at")
-      .$defaultFn(() => /* @__PURE__ */ new Date())
-      .notNull(),
-    updatedAt: timestamp("updated_at")
-      .$defaultFn(() => /* @__PURE__ */ new Date())
-      .notNull(),
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  program_id: text("program_id").notNull(),
+  color: text("color").notNull(),
+  sort_order: text("sort_order").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
 });
 
 export const taskAssignee = pgTable(
@@ -97,65 +113,73 @@ export const taskAssignee = pgTable(
 );
 
 export const taskRelations = relations(task, ({ one, many }) => ({
-    program: one(program, {
-        fields: [task.program_id],
-        references: [program.id],
-    }),
-    cycle: one(cycle, {
-        fields: [task.cycle_id],
-        references: [cycle.id],
-    }),
-    project: one(project, {
-        fields: [task.project_id],
-        references: [project.id],
-    }),
-    assignees: many(taskAssignee),
-    lead: one(user, {
-        fields: [task.lead_id],
-        references: [user.id],
-    }),
-    dependencies: many(taskDependency, {
-      relationName: "taskDependencies",
-    }),
-    dependents: many(taskDependency, {
-      relationName: "dependsOnTasks",
-    }),
+  program: one(program, {
+    fields: [task.program_id],
+    references: [program.id],
+  }),
+  cycle: one(cycle, {
+    fields: [task.cycle_id],
+    references: [cycle.id],
+  }),
+  project: one(project, {
+    fields: [task.project_id],
+    references: [project.id],
+  }),
+  assignees: many(taskAssignee),
+  lead: one(user, {
+    fields: [task.lead_id],
+    references: [user.id],
+  }),
+  dependencies: many(taskDependency, {
+    relationName: "taskDependencies",
+  }),
+  dependents: many(taskDependency, {
+    relationName: "dependsOnTasks",
+  }),
+  parent: one(task, {
+    fields: [task.id],
+    references: [task.subtasks_ids],
+    relationName: "taskSubtasks",
+  }),
+  subtasks: many(task, {
+    relationName: "taskSubtasks",
+  }),
 }));
 
-  export const taskAssigneeRelations = relations(taskAssignee, ({ one }) => ({
-    task: one(task, {
-      fields: [taskAssignee.task_id],
-      references: [task.id],
-    }),
-    user: one(user, {
-      fields: [taskAssignee.user_id],
-      references: [user.id],
-    }),
-  }));
+export const taskAssigneeRelations = relations(taskAssignee, ({ one }) => ({
+  task: one(task, {
+    fields: [taskAssignee.task_id],
+    references: [task.id],
+  }),
+  user: one(user, {
+    fields: [taskAssignee.user_id],
+    references: [user.id],
+  }),
+}));
 
-  export const taskDependencyRelations = relations(taskDependency, ({ one }) => ({
-    task: one(task, {
-      fields: [taskDependency.task_id],
-      references: [task.id],
-      relationName: "taskDependencies",
-    }),
-    dependency: one(task, {
-      fields: [taskDependency.dependency_id],
-      references: [task.id],
-      relationName: "dependsOnTasks",
-    }),
-  }));
+export const taskDependencyRelations = relations(taskDependency, ({ one }) => ({
+  task: one(task, {
+    fields: [taskDependency.task_id],
+    references: [task.id],
+    relationName: "taskDependencies",
+  }),
+  dependency: one(task, {
+    fields: [taskDependency.dependency_id],
+    references: [task.id],
+    relationName: "dependsOnTasks",
+  }),
+}));
 
 export const taskStatusRelations = relations(taskStatus, ({ one }) => ({
-    program: one(program, {
-        fields: [taskStatus.program_id],
-        references: [program.id],
-    }),
+  program: one(program, {
+    fields: [taskStatus.program_id],
+    references: [program.id],
+  }),
 }));
 
 export const taskPriorityRelations = relations(taskPriority, ({ one }) => ({
-    program: one(program, {
-        fields: [taskPriority.program_id],
-        references: [program.id],
-    }),
+  program: one(program, {
+    fields: [taskPriority.program_id],
+    references: [program.id],
+  }),
 }));
