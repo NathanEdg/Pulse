@@ -2,7 +2,6 @@ import { relations } from "drizzle-orm";
 import {
   pgEnum,
   pgTable,
-  pgTableCreator,
   primaryKey,
   text,
   timestamp,
@@ -123,6 +122,24 @@ export const taskAssignee = pgTable(
   }),
 );
 
+export const taskStar = pgTable(
+  "task_star",
+  {
+    task_id: text("task_id")
+      .notNull()
+      .references(() => task.id, { onDelete: "cascade" }),
+    user_id: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.task_id, table.user_id] }),
+  }),
+);
+
 export const taskRelations = relations(task, ({ one, many }) => ({
   program: one(program, {
     fields: [task.program_id],
@@ -159,6 +176,7 @@ export const taskRelations = relations(task, ({ one, many }) => ({
   subtasks: many(task, {
     relationName: "taskSubtasks",
   }),
+  stars: many(taskStar),
 }));
 
 export const taskAssigneeRelations = relations(taskAssignee, ({ one }) => ({
@@ -168,6 +186,17 @@ export const taskAssigneeRelations = relations(taskAssignee, ({ one }) => ({
   }),
   user: one(user, {
     fields: [taskAssignee.user_id],
+    references: [user.id],
+  }),
+}));
+
+export const taskStarRelations = relations(taskStar, ({ one }) => ({
+  task: one(task, {
+    fields: [taskStar.task_id],
+    references: [task.id],
+  }),
+  user: one(user, {
+    fields: [taskStar.user_id],
     references: [user.id],
   }),
 }));

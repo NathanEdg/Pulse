@@ -21,15 +21,22 @@ import NoTeams from "@/components/dashboard/teams/no-teams";
 import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 import { authClient } from "@/server/better-auth/client";
 import { Badge } from "@/components/ui/badge";
+import { useActiveProgram } from "@/hooks/use-active-program";
 
 export default function TeamsPage() {
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
   const { data: currentUser } = authClient.useSession();
+  const { programId } = useActiveProgram();
 
-  const { data: teams, isLoading } = api.teams.getTeamsWithMembership.useQuery({
-    user_id: currentUser?.user?.id ?? "",
-    program_id: "program-seed-1",
-  });
+  const { data: teams, isLoading } = api.teams.getTeamsWithMembership.useQuery(
+    {
+      user_id: currentUser?.user?.id ?? "",
+      program_id: programId ?? "",
+    },
+    {
+      enabled: !!programId && !!currentUser?.user?.id,
+    },
+  );
 
   const joinTeamMutation = api.teams.joinTeam.useMutation({
     onSuccess: () => {
@@ -51,7 +58,7 @@ export default function TeamsPage() {
     },
   });
 
-  if (isLoading || !currentUser?.user?.id) {
+  if (isLoading || !currentUser?.user?.id || !programId) {
     return (
       <PageContainer
         title="Teams"
@@ -161,7 +168,28 @@ export default function TeamsPage() {
                     {team.memberCount === 1 ? "member" : "members"}
                   </div>
                   <div className="flex gap-2">
-                    <Button asChild className="flex-1" variant="outline">
+                    {!team.isMember && !team.private && (
+                      <Button
+                        className="flex-1"
+                        onClick={() =>
+                          joinTeamMutation.mutate({
+                            team_id: team.id,
+                            user_id: currentUser?.user?.id ?? "",
+                          })
+                        }
+                        disabled={joinTeamMutation.isPending}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Join Team
+                      </Button>
+                    )}
+                    <Button
+                      asChild
+                      className="flex-1"
+                      variant={
+                        !team.isMember && !team.private ? "outline" : "default"
+                      }
+                    >
                       <Link href={`/teams/${team.name.toLowerCase()}`}>
                         View Team
                         <ArrowRight className="ml-2 h-4 w-4" />

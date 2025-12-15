@@ -213,13 +213,17 @@ export const taskRouter = createTRPCRouter({
       }),
     )
     .query(async ({ input, ctx }) => {
-      const foundTask = await ctx.db
-        .select()
-        .from(task)
-        .where(eq(task.id, input.id))
-        .limit(1);
+      const foundTask = await ctx.db.query.task.findFirst({
+        where: eq(task.id, input.id),
+        with: {
+          priority: true,
+          project: true,
+          cycle: true,
+          lead: true,
+        },
+      });
 
-      return foundTask[0] ?? null;
+      return foundTask ?? null;
     }),
 
   updateTask: protectedProcedure
@@ -597,4 +601,102 @@ export const taskRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       await ctx.db.delete(subTask).where(eq(subTask.id, input.id));
     }),
+
+  starTask: protectedProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session?.user.id;
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      // Check if already starred
+      const existing = await ctx.db.query.taskStar.findFirst({
+        where: and(
+          eq(taskStar.task_id, input.taskId),
+          eq(taskStar.user_id, userId),
+        ),
+      });
+
+      if (existing) {
+        return { success: true, starred: true };
+      }
+
+      await ctx.db.insert(taskStar).values({
+        task_id: input.taskId,
+        user_id: userId,
+      });
+
+      return { success: true, starred: true };
+    }),
+
+  unstarTask: protectedProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const userId = ctx.session?.user.id;
+      if (!userId) {
+        throw new Error("Not authenticated");
+      }
+
+      await ctx.db
+        .delete(taskStar)
+        .where(
+          and(eq(taskStar.task_id, input.taskId), eq(taskStar.user_id, userId)),
+        );
+
+      return { success: true, starred: false };
+    }),
+
+  isTaskStarred: protectedProcedure
+    .input(
+      z.object({
+        taskId: z.string(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      const userId = ctx.session?.user.id;
+      if (!userId) {
+        return false;
+      }
+
+      const star = await ctx.db.query.taskStar.findFirst({
+        where: and(
+          eq(taskStar.task_id, input.taskId),
+          eq(taskStar.user_id, userId),
+        ),
+      });
+
+      return !!star;
+    }),
+
+  getStarredTasks: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.session?.user.id;
+    if (!userId) {
+      return [];
+    }
+
+    const starredTasks = await ctx.db.query.taskStar.findMany({
+      where: eq(taskStar.user_id, userId),
+      with: {
+        task: {
+          with: {
+            priority: true,
+            project: true,
+            cycle: true,
+            lead: true,
+          },
+        },
+      },
+    });
+
+    return starredTasks.map((star) => star.task);
+  }),
 });

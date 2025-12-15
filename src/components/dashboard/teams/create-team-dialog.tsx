@@ -5,6 +5,7 @@ import { IconPickerType } from "@/components/util/dialogs/custom/icon-picker-typ
 import { api } from "@/trpc/react";
 import { toast } from "sonner";
 import { z } from "zod";
+import { useActiveProgram } from "@/hooks/use-active-program";
 
 const teamSchema = z.object({
   name: z.string().min(1, "Team name is required"),
@@ -25,6 +26,8 @@ export function CreateTeamDialog({
   onOpenChange,
   onSubmit,
 }: CreateTeamDialogProps) {
+  const { programId } = useActiveProgram();
+
   const { mutate: createTeamMutate } = api.teams.createTeam.useMutation({
     onSuccess: () => {
       toast.success("Team created successfully!");
@@ -35,6 +38,11 @@ export function CreateTeamDialog({
   });
 
   function handleCreateTeam(values: z.infer<typeof teamSchema>) {
+    if (!programId) {
+      toast.error("No active program selected");
+      return;
+    }
+
     createTeamMutate(
       {
         name: values.name,
@@ -42,7 +50,7 @@ export function CreateTeamDialog({
         color: values.color,
         icon: values.icon,
         private: values.isPrivate,
-        program_id: "program-seed-1",
+        program_id: programId,
       },
       {
         onSuccess: () => {
