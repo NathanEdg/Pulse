@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { api } from "@/trpc/react";
+import { useActiveProgram } from "@/hooks/use-active-program";
+import { TASK_STATUSES, DEFAULT_LABELS, DEFAULT_CYCLES } from "@/lib/constants";
 import {
   X,
   Paperclip,
@@ -131,7 +133,7 @@ export function CreateTaskDialog({
   open,
   onOpenChange,
   _teamId,
-  _programId = "4287f030-7ee1-4025-bb03-0074fff9afd9",
+  _programId,
   children,
   taskId,
   defaultTitle = "",
@@ -149,6 +151,8 @@ export function CreateTaskDialog({
   onTaskCreate,
   onTaskUpdate,
 }: CreateTaskDialogProps) {
+  const { programId: activeProgramId } = useActiveProgram();
+  const programId = _programId ?? activeProgramId;
   const isEditMode = !!taskId;
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
@@ -194,16 +198,10 @@ export function CreateTaskDialog({
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
   const { data: priorities = [] } = api.settings.getPriorities.useQuery({
-    program_id: _programId,
+    program_id: programId ?? "",
   });
 
-  const statuses = [
-    { id: "backlog", name: "Backlog", color: "#9CA3AF" },
-    { id: "planned", name: "Planned", color: "#3B82F6" },
-    { id: "in_progress", name: "In Progress", color: "#F59E0B" },
-    { id: "completed", name: "Completed", color: "#10B981" },
-    { id: "cancelled", name: "Cancelled", color: "#EF4444" },
-  ];
+  const statuses = Object.values(TASK_STATUSES);
 
   const projects = [
     { id: "1", name: "Website Redesign", color: "#8B5CF6" },
@@ -211,28 +209,22 @@ export function CreateTaskDialog({
     { id: "3", name: "Marketing Campaign", color: "#F59E0B" },
   ];
 
-  const labels = [
-    { id: "1", name: "Bug", color: "#EF4444" },
-    { id: "2", name: "Feature", color: "#3B82F6" },
-    { id: "3", name: "Documentation", color: "#8B5CF6" },
-    { id: "4", name: "Enhancement", color: "#10B981" },
-    { id: "5", name: "Question", color: "#F59E0B" },
-  ];
+  const labels = DEFAULT_LABELS;
 
-  const cycles = [
-    { id: "current", name: "Current", start: "", end: "" },
-    { id: "1", name: "Cycle 1", start: "2024-01", end: "2024-02" },
-    { id: "2", name: "Cycle 2", start: "2024-03", end: "2024-04" },
-    { id: "3", name: "Cycle 3", start: "2024-05", end: "2024-06" },
-  ];
+  const cycles = DEFAULT_CYCLES;
 
   const { data: teams = [] } = api.teams.getTeams.useQuery({
-    program_id: _programId,
+    program_id: programId ?? "",
   });
 
-  const { data: members = [] } = api.programs.getMembers.useQuery({
-    organizationId: _programId,
-  });
+  const { data: members = [] } = api.programs.getMembers.useQuery(
+    {
+      programId: programId ?? "",
+    },
+    {
+      enabled: !!programId,
+    },
+  );
 
   const allLabels = [...labels, ...customLabels];
 
@@ -554,7 +546,7 @@ export function CreateTaskDialog({
                           className="size-2 rounded-full"
                           style={{ backgroundColor: status.color }}
                         />
-                        {status.name}
+                        {status.label}
                       </div>
                     </SelectItem>
                   ))}

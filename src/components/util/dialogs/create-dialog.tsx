@@ -48,6 +48,7 @@ export interface CreateDialogProps<T extends z.ZodObject<any>> {
   schema: T;
   onSubmit: (data: z.infer<T>) => Promise<void> | void;
   defaultValues?: Partial<z.infer<T>>;
+  editValues?: Partial<z.infer<T>> | null;
   fieldConfigs?: Partial<Record<keyof z.infer<T>, FieldConfig>>;
   submitLabel?: string;
   cancelLabel?: string;
@@ -61,19 +62,33 @@ export function CreateDialog<T extends z.ZodObject<any>>({
   schema,
   onSubmit,
   defaultValues,
+  editValues,
   fieldConfigs = {},
   submitLabel = "Create",
   cancelLabel = "Cancel",
 }: CreateDialogProps<T>) {
-  const form = useForm<z.infer<T>>({
-    resolver: zodResolver(schema),
+  const isEditMode = !!editValues;
+
+  const form = useForm<z.output<T>>({
+    resolver: zodResolver(schema) as any,
     defaultValues: defaultValues as any,
   });
 
-  const handleSubmit = async (data: z.infer<T>) => {
+  // Reset form with edit values when they change
+  React.useEffect(() => {
+    if (editValues) {
+      form.reset(editValues as any);
+    } else if (defaultValues) {
+      form.reset(defaultValues as any);
+    }
+  }, [editValues, defaultValues, form]);
+
+  const handleSubmit = async (data: z.output<T>) => {
     try {
       await onSubmit(data);
-      form.reset();
+      if (!isEditMode) {
+        form.reset();
+      }
       onOpenChange(false);
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -178,12 +193,14 @@ export function CreateDialog<T extends z.ZodObject<any>>({
           type="number"
           placeholder={config.placeholder}
           disabled={form.formState.isSubmitting}
-          {...field}
+          name={field.name}
+          ref={field.ref}
           value={field.value ?? ""}
           onChange={(e) => {
-            const val = e.target.value;
-            field.onChange(val === "" ? undefined : parseFloat(val));
+            const numValue = e.target.valueAsNumber;
+            field.onChange(isNaN(numValue) ? undefined : numValue);
           }}
+          onBlur={field.onBlur}
         />
       );
     }
@@ -264,7 +281,11 @@ export function CreateDialog<T extends z.ZodObject<any>>({
                 {cancelLabel}
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting ? "Creating..." : submitLabel}
+                {form.formState.isSubmitting
+                  ? isEditMode
+                    ? "Saving..."
+                    : "Creating..."
+                  : submitLabel}
               </Button>
             </DialogFooter>
           </form>

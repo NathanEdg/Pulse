@@ -30,9 +30,21 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
   const session = await auth.api.getSession({
     headers: opts.headers,
   });
+
+  // Get the active program ID from the active organization
+  let activeProgramId: string | null = null;
+  if (session?.session.activeOrganizationId) {
+    const programResult = await db.query.program.findFirst({
+      where: (program, { eq }) =>
+        eq(program.organizationId, session.session.activeOrganizationId!),
+    });
+    activeProgramId = programResult?.id ?? null;
+  }
+
   return {
     db,
     session,
+    activeProgramId,
     ...opts,
   };
 };

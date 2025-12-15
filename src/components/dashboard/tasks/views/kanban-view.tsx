@@ -12,6 +12,8 @@ import { ConfirmDeleteDialog } from "@/components/util/dialogs/confirm-deletion"
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useActiveProgram } from "@/hooks/use-active-program";
+import { TASK_STATUSES } from "@/lib/constants";
 
 type KanbanViewProps = {
   teamName: string;
@@ -20,6 +22,7 @@ type KanbanViewProps = {
 
 export function KanbanView({ teamName, tasks }: KanbanViewProps) {
   const router = useRouter();
+  const { programId } = useActiveProgram();
   const createTaskMutation = clientApi.tasks.createTask.useMutation({
     onSuccess: () => {
       toast.success("Task created successfully!");
@@ -71,53 +74,17 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
     return aSortOrder.localeCompare(bSortOrder);
   };
 
-  const columns: KanbanColumn[] = [
-    {
-      id: "backlog",
-      title: "Backlog",
-      color: "#64748b",
+  const columns: KanbanColumn[] = Object.values(TASK_STATUSES).map(
+    (status) => ({
+      id: status.id,
+      title: status.label,
+      color: status.color,
       tasks: tasks
-        .filter((task) => task.status === "backlog")
+        .filter((task) => task.status === status.id)
         .sort(sortByPriority)
-        .map((task) => transformTask(task, "#64748b")),
-    },
-    {
-      id: "planned",
-      title: "Planned",
-      color: "#6366f1",
-      tasks: tasks
-        .filter((task) => task.status === "planned")
-        .sort(sortByPriority)
-        .map((task) => transformTask(task, "#6366f1")),
-    },
-    {
-      id: "in_progress",
-      title: "In Progress",
-      color: "#f59e0b",
-      tasks: tasks
-        .filter((task) => task.status === "in_progress")
-        .sort(sortByPriority)
-        .map((task) => transformTask(task, "#f59e0b")),
-    },
-    {
-      id: "completed",
-      title: "Completed",
-      color: "#10b981",
-      tasks: tasks
-        .filter((task) => task.status === "completed")
-        .sort(sortByPriority)
-        .map((task) => transformTask(task, "#10b981")),
-    },
-    {
-      id: "cancelled",
-      title: "Cancelled",
-      color: "#ef4444",
-      tasks: tasks
-        .filter((task) => task.status === "cancelled")
-        .sort(sortByPriority)
-        .map((task) => transformTask(task, "#ef4444")),
-    },
-  ];
+        .map((task) => transformTask(task, status.color)),
+    }),
+  );
 
   const handleColumnsChange = (updatedColumns: KanbanColumn[]) => {
     // Find tasks that have moved to different columns and update their status
@@ -161,11 +128,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
   const [taskToDelete, setTaskToDelete] = useState<KanbanTask | null>(null);
 
   const handleTaskDoubleClick = (task: KanbanTask) => {
-    const fullTask = tasks.find((t) => t.id === task.id);
-    if (fullTask) {
-      setEditingTask(fullTask);
-      setEditTaskOpen(true);
-    }
+    router.push(`/task/${task.id}`);
   };
 
   const handleTaskEdit = (task: KanbanTask) => {
@@ -211,7 +174,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
         }}
         defaultStatus={taskCreateStatus}
         defaultTeam={teamName}
-        _programId="4287f030-7ee1-4025-bb03-0074fff9afd9"
+        _programId={programId ?? undefined}
         onTaskCreate={(taskData) => {
           createTaskMutation.mutate({
             title: taskData.title,
@@ -224,7 +187,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
             labels: taskData.labels,
             cycle: taskData.cycle,
             team: taskData.team,
-            program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
+            program_id: programId ?? "",
             start_date: taskData.startDate ?? undefined,
             due_date: taskData.endDate ?? undefined,
           });
@@ -258,7 +221,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
           defaultLabels={editingTask.tags ?? []}
           defaultStartDate={editingTask.start_date}
           defaultEndDate={editingTask.due_date}
-          _programId="4287f030-7ee1-4025-bb03-0074fff9afd9"
+          _programId={programId ?? undefined}
           onTaskUpdate={(taskData) => {
             updateTaskMutation.mutate({
               id: taskData.id,

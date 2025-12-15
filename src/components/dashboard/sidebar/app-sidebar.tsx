@@ -30,10 +30,12 @@ import {
   RefreshCcw,
   RefreshCcwDot,
   Settings,
+  Star,
   Users,
   View,
   Zap,
   Plus,
+  Users2,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -71,12 +73,6 @@ const sampleNotifications = [
   },
 ];
 
-const programs = [
-  { id: "1", name: "Alpha Inc.", logo: LogoSvg, plan: "Free" },
-  { id: "2", name: "Beta Corp.", logo: LogoSvg, plan: "Free" },
-  { id: "3", name: "Gamma Tech", logo: LogoSvg, plan: "Free" },
-];
-
 export const defaultSections: NavigationSection[] = [
   {
     id: "main",
@@ -92,6 +88,12 @@ export const defaultSections: NavigationSection[] = [
         title: "Inbox",
         icon: <Inbox className="size-4" />,
         link: "#",
+      },
+      {
+        id: "starred",
+        title: "Starred",
+        icon: <Star className="size-4" />,
+        link: "/starred",
       },
       {
         id: "current-cycle",
@@ -138,6 +140,12 @@ export const defaultSections: NavigationSection[] = [
         title: "People",
         icon: <Users className="size-4" />,
         link: "#",
+      },
+      {
+        id: "all-teams",
+        title: "All Teams",
+        link: "/teams",
+        icon: <Users className="size-4" />,
       },
       {
         id: "views",
@@ -222,7 +230,7 @@ export const defaultSections: NavigationSection[] = [
         id: "settings",
         title: "Settings",
         icon: <Settings className="size-4" />,
-        link: "#",
+        link: "/settings",
       },
     ],
   },
@@ -233,10 +241,17 @@ export function DashboardSidebar() {
   const isCollapsed = state === "collapsed";
   const user = authClient.useSession();
 
-  const teams = api.teams.getTeamsWithMembership.useQuery({
-    user_id: user.data?.user.id ?? "",
-    program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
-  });
+  const { data: activeProgram } = api.programs.getCurrent.useQuery();
+
+  const teams = api.teams.getTeamsWithMembership.useQuery(
+    {
+      user_id: user.data?.user.id ?? "",
+      program_id: activeProgram?.id ?? "",
+    },
+    {
+      enabled: !!activeProgram?.id && !!user.data?.user.id,
+    },
+  );
 
   const userTeams = teams.data?.filter((team) => team.isMember);
 
@@ -391,7 +406,7 @@ export function DashboardSidebar() {
         <DashboardNavigation sections={navigationSections} />
       </SidebarContent>
       <SidebarFooter className="px-2">
-        <ProgramSwitcher programs={programs} />
+        <ProgramSwitcher />
       </SidebarFooter>
     </Sidebar>
   );

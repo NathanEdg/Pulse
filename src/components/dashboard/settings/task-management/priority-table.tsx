@@ -17,9 +17,9 @@ import {
 import { useDataTable } from "@/hooks/use-data-table";
 import { ConfirmDeleteDialog } from "@/components/util/dialogs/confirm-deletion";
 import { api } from "@/trpc/react";
-import { CreatePriorityDialog } from "@/components/dashboard/settings/task-management/create-priority-dialog";
-import { EditPriorityDialog } from "@/components/dashboard/settings/task-management/edit-priority-dialog";
+import { PriorityDialog } from "@/components/dashboard/settings/task-management/create-priority-dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { useActiveProgram } from "@/hooks/use-active-program";
 
 interface TaskPriority {
   id: string;
@@ -31,10 +31,16 @@ interface TaskPriority {
 
 export function TaskPriorityTable() {
   const utils = api.useUtils();
+  const { programId } = useActiveProgram();
   const { data: priorities = [], isLoading } =
-    api.settings.getPriorities.useQuery({
-      program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
-    });
+    api.settings.getPriorities.useQuery(
+      {
+        program_id: programId ?? "",
+      },
+      {
+        enabled: !!programId,
+      },
+    );
   const { mutate: deletePriorityMutate } =
     api.settings.deletePriority.useMutation({
       onSuccess: () => {
@@ -207,6 +213,7 @@ export function TaskPriorityTable() {
 
   const { table } = useDataTable({
     data: isLoading ? [] : filteredData,
+    // @ts-expect-error - idk why this is an error
     columns,
     pageCount: 1,
     initialState: {
@@ -247,7 +254,7 @@ export function TaskPriorityTable() {
         }}
       />
 
-      <CreatePriorityDialog
+      <PriorityDialog
         open={isCreateOpen}
         onOpenChange={setIsCreateOpen}
         onSubmit={async (payload) => {
@@ -256,14 +263,14 @@ export function TaskPriorityTable() {
             color: payload.color,
             description: payload.description,
             sort_order: payload.order.toString(),
-            program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
+            program_id: programId ?? "",
           };
           createPriorityMutate(priority);
           setIsCreateOpen(false);
         }}
       />
 
-      <EditPriorityDialog
+      <PriorityDialog
         open={!!editPriority}
         onOpenChange={(open) => !open && setEditPriority(null)}
         priority={
@@ -277,15 +284,17 @@ export function TaskPriorityTable() {
               }
             : null
         }
-        onSubmit={(id, payload) => {
-          editPriorityMutate({
-            id,
-            name: payload.name,
-            color: payload.color,
-            description: payload.description,
-            sort_order: payload.order.toString(),
-          });
-          setEditPriority(null);
+        onSubmit={(payload, id) => {
+          if (id) {
+            editPriorityMutate({
+              id,
+              name: payload.name,
+              color: payload.color,
+              description: payload.description,
+              sort_order: payload.order.toString(),
+            });
+            setEditPriority(null);
+          }
         }}
       />
     </div>
