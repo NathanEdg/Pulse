@@ -11,6 +11,8 @@ export const UPDATE_TYPES = [
   "date-change",
   "subtask-change",
   "icon-change",
+  "dependency-add",
+  "dependency-remove",
 ] as const;
 
 export type UpdateType = (typeof UPDATE_TYPES)[number];
@@ -59,6 +61,10 @@ interface IconChangePayload {
   newIcon: string;
 }
 
+interface DependencyChangePayload {
+  dependencyId: string;
+}
+
 type UpdatePayloadMap = {
   creation: EmptyPayload;
   "title-change": TitleChangePayload;
@@ -72,6 +78,8 @@ type UpdatePayloadMap = {
   "date-change": DateChangePayload;
   "subtask-change": EmptyPayload;
   "icon-change": IconChangePayload;
+  "dependency-add": DependencyChangePayload;
+  "dependency-remove": DependencyChangePayload;
 };
 
 export function createUpdateContent<T extends UpdateType>(

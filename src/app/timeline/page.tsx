@@ -1,86 +1,106 @@
-import Timeline, { type Task, type Cycle } from "@/components/Timeline";
+"use client";
 
-const mockCycles: Cycle[] = [
-  {
-    id: "c1",
-    number: 1,
-    start_date: new Date(new Date().setDate(new Date().getDate() - 10)),
-    end_date: new Date(new Date().setDate(new Date().getDate() - 4)),
-  },
-  {
-    id: "c2",
-    number: 2,
-    start_date: new Date(new Date().setDate(new Date().getDate() - 3)),
-    end_date: new Date(new Date().setDate(new Date().getDate() + 3)),
-  },
-  {
-    id: "c3",
-    number: 3,
-    start_date: new Date(new Date().setDate(new Date().getDate() + 4)),
-    end_date: new Date(new Date().setDate(new Date().getDate() + 10)),
-  },
-];
-
-const mockTasks: Task[] = [
-  {
-    id: "1",
-    title: "15 Qualified Prospects",
-    start_date: new Date(new Date().setDate(new Date().getDate() - 5)),
-    due_date: new Date(new Date().setDate(new Date().getDate() + 2)),
-    status: "done",
-    priority: "high",
-    assignees_ids: ["user1"],
-    project_id: "proj1",
-    tags: ["sales"],
-  },
-  {
-    id: "2",
-    title: "Developer Survey Analysis",
-    start_date: new Date(new Date().setDate(new Date().getDate() - 2)),
-    due_date: new Date(new Date().setDate(new Date().getDate() + 5)),
-    status: "in-progress",
-    priority: "medium",
-    assignees_ids: ["user2"],
-    project_id: "proj1",
-    tags: ["research"],
-  },
-  {
-    id: "3",
-    title: "MVP Development",
-    start_date: new Date(),
-    due_date: new Date(new Date().setDate(new Date().getDate() + 14)),
-    status: "todo",
-    priority: "high",
-    assignees_ids: ["user1", "user3"],
-    project_id: "proj2",
-    tags: ["dev"],
-  },
-  {
-    id: "4",
-    title: "Q1 Marketing Strategy",
-    start_date: new Date(new Date().setDate(new Date().getDate() + 5)),
-    due_date: new Date(new Date().setDate(new Date().getDate() + 10)),
-    status: "todo",
-    priority: "low",
-    assignees_ids: ["user4"],
-    project_id: "proj3",
-  },
-  {
-    id: "5",
-    title: "Design System Update",
-    start_date: new Date(new Date().setDate(new Date().getDate() - 10)),
-    due_date: new Date(new Date().setDate(new Date().getDate() - 2)),
-    status: "done",
-    priority: "medium",
-    assignees_ids: ["user5"],
-    project_id: "proj1",
-  },
-];
+import { useState } from "react";
+import Timeline, { type Task } from "@/components/dashboard/gantt/gantt-view";
+import { api } from "@/trpc/react";
+import { toast } from "sonner";
 
 export default function TimelinePage() {
+  const utils = api.useUtils();
+  const [pendingTaskIds, setPendingTaskIds] = useState<string[]>([]);
+
+  const { data: tasks, isLoading: isLoadingTasks } =
+    api.tasks.getTasks.useQuery();
+  const { data: cycles, isLoading: isLoadingCycles } =
+    api.tasks.getCycles.useQuery();
+
+  const updateTasks = api.tasks.updateTasks.useMutation({
+    onSuccess: async (_, variables) => {
+      await utils.tasks.getTasks.invalidate();
+      const updatedIds = variables.map((v) => v.id);
+      setPendingTaskIds((prev) =>
+        prev.filter((id) => !updatedIds.includes(id)),
+      );
+      toast.success("Tasks updated");
+    },
+    onError: (error, variables) => {
+      const updatedIds = variables.map((v) => v.id);
+      setPendingTaskIds((prev) =>
+        prev.filter((id) => !updatedIds.includes(id)),
+      );
+      toast.error(`Failed to update tasks: ${error.message}`);
+    },
+  });
+
+  const addDependency = api.tasks.addDependency.useMutation({
+    onSuccess: async () => {
+      await utils.tasks.getTasks.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Failed to add dependency: ${error.message}`);
+    },
+  });
+
+  const removeDependency = api.tasks.removeDependency.useMutation({
+    onSuccess: async () => {
+      await utils.tasks.getTasks.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Failed to remove dependency: ${error.message}`);
+    },
+  });
+
+  const handleTasksChange = (changedTasks: Task[]) => {
+    const tasksToUpdate = changedTasks.filter(
+      (t) => t.start_date && t.due_date,
+    );
+
+    if (tasksToUpdate.length === 0) return;
+
+    setPendingTaskIds((prev) => [...prev, ...tasksToUpdate.map((t) => t.id)]);
+
+    updateTasks.mutate(
+      tasksToUpdate.map((task) => ({
+        id: task.id,
+        start_date: task.start_date!,
+        due_date: task.due_date!,
+      })),
+    );
+  };
+
+  const handleDependencyAdd = (sourceId: string, targetId: string) => {
+    // In the gantt view, dragging from source to target means target depends on source.
+    addDependency.mutate({
+      taskId: targetId,
+      dependencyId: sourceId,
+    });
+  };
+
+  const handleDependencyRemove = (sourceId: string, targetId: string) => {
+    removeDependency.mutate({
+      taskId: targetId,
+      dependencyId: sourceId,
+    });
+  };
+
+  if (isLoadingTasks || isLoadingCycles) {
+    return (
+      <div className="bg-background flex h-screen w-full items-center justify-center">
+        <div className="text-muted-foreground">Loading timeline...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-background h-screen w-full overflow-hidden">
-      <Timeline tasks={mockTasks} cycles={mockCycles} />
+      <Timeline
+        tasks={tasks ?? []}
+        cycles={cycles ?? []}
+        pendingTaskIds={pendingTaskIds}
+        onTasksChange={handleTasksChange}
+        onDependencyAdd={handleDependencyAdd}
+        onDependencyRemove={handleDependencyRemove}
+      />
     </div>
   );
 }

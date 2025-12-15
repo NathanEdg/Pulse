@@ -19,8 +19,6 @@ import {
   differenceInDays,
   addDays,
 } from "date-fns";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -29,11 +27,7 @@ import {
   PopoverContent,
   PopoverAnchor,
 } from "@/components/ui/popover";
-
-// Utility for tailwind class merging
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 // Define Task interface based on the schema
 export interface Task {
@@ -61,16 +55,44 @@ const BATCH_SIZE = 6;
 const ROW_HEIGHT = 64; // Height of each task row
 const HEADER_HEIGHT = 48; // Height of the timeline header
 
+const getPriorityValue = (priority: string) => {
+  switch (priority.toLowerCase()) {
+    case "high":
+      return 3;
+    case "medium":
+      return 2;
+    case "low":
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const sortTasks = (tasks: Task[]) => {
+  return [...tasks].sort((a, b) => {
+    const priorityA = getPriorityValue(a.priority);
+    const priorityB = getPriorityValue(b.priority);
+
+    if (priorityA !== priorityB) {
+      return priorityB - priorityA; // Descending priority
+    }
+
+    return a.title.localeCompare(b.title); // Ascending title
+  });
+};
+
 export default function Timeline({
   tasks = [],
   cycles = [],
-  onTaskMove,
+  pendingTaskIds = [],
+  onTasksChange,
   onDependencyAdd,
   onDependencyRemove,
 }: {
   tasks?: Task[];
   cycles?: Cycle[];
-  onTaskMove?: (task: Task) => void;
+  pendingTaskIds?: string[];
+  onTasksChange?: (tasks: Task[]) => void;
   onDependencyAdd?: (sourceId: string, targetId: string) => void;
   onDependencyRemove?: (sourceId: string, targetId: string) => void;
 }) {
@@ -89,11 +111,8 @@ export default function Timeline({
     prevPixelsPerDay.current = pixelsPerDay;
   }, [pixelsPerDay]);
 
-  const [localTasks, setLocalTasks] = useState<Task[]>(tasks);
+  const [localTasks, setLocalTasks] = useState<Task[]>(() => sortTasks(tasks));
 
-  useEffect(() => {
-    setLocalTasks(tasks);
-  }, [tasks]);
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [cursorDate, setCursorDate] = useState<Date | null>(null);
   const [dragState, setDragState] = useState<{
@@ -108,6 +127,22 @@ export default function Timeline({
     isCtrlPressed: boolean;
     isShiftPressed: boolean;
   } | null>(null);
+
+  useEffect(() => {
+    if (dragState) return;
+
+    setLocalTasks((prev) => {
+      const taskMap = new Map(prev.map((t) => [t.id, t]));
+      const newTasks = tasks.map((t) => {
+        if (pendingTaskIds.includes(t.id) && taskMap.has(t.id)) {
+          return taskMap.get(t.id)!;
+        }
+        return t;
+      });
+      return sortTasks(newTasks);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, pendingTaskIds]);
 
   const [dependencyDrag, setDependencyDrag] = useState<{
     sourceId: string;
@@ -282,6 +317,25 @@ export default function Timeline({
 
     const scheduledTasks = autoSchedule(updatedTasks);
     setLocalTasks(scheduledTasks);
+
+    const changedTasks: Task[] = [];
+    scheduledTasks.forEach((newTask) => {
+      const oldTask = localTasks.find((t) => t.id === newTask.id);
+      if (!oldTask) return;
+
+      const hasChanged =
+        newTask.start_date?.getTime() !== oldTask.start_date?.getTime() ||
+        newTask.due_date?.getTime() !== oldTask.due_date?.getTime();
+
+      if (hasChanged) {
+        changedTasks.push(newTask);
+      }
+    });
+
+    if (changedTasks.length > 0) {
+      onTasksChange?.(changedTasks);
+    }
+
     toast.success("Dependency created");
     onDependencyAdd?.(sourceId, targetId);
   };
@@ -550,9 +604,11 @@ export default function Timeline({
       }
 
       if (dragState) {
-        setLocalTasks(derivedTasks);
+        const sortedTasks = sortTasks(derivedTasks);
+        setLocalTasks(sortedTasks);
 
-        derivedTasks.forEach((newTask) => {
+        const changedTasks: Task[] = [];
+        sortedTasks.forEach((newTask) => {
           const oldTask = localTasks.find((t) => t.id === newTask.id);
           if (!oldTask) return;
 
@@ -561,9 +617,13 @@ export default function Timeline({
             newTask.due_date?.getTime() !== oldTask.due_date?.getTime();
 
           if (hasChanged) {
-            onTaskMove?.(newTask);
+            changedTasks.push(newTask);
           }
         });
+
+        if (changedTasks.length > 0) {
+          onTasksChange?.(changedTasks);
+        }
       }
       setDragState(null);
     };
@@ -643,7 +703,7 @@ export default function Timeline({
                 <div className="flex w-full items-center gap-2">
                   <div
                     className={cn(
-                      "h-2 w-2 flex-shrink-0 rounded-full",
+                      "h-2 w-2 shrink-0 rounded-full",
                       t.status === "done"
                         ? "bg-green-500"
                         : t.status === "in-progress"
@@ -1119,7 +1179,7 @@ function MonthHeader({
 
   return (
     <div
-      className="border-border/30 relative z-20 flex h-full flex-shrink-0 items-end border-r border-dashed px-2 pb-2"
+      className="border-border/30 relative z-20 flex h-full shrink-0 items-end border-r border-dashed px-2 pb-2"
       style={{ width }}
     >
       <span className="text-muted-foreground block text-[10px] font-bold tracking-wider whitespace-nowrap">
@@ -1147,7 +1207,7 @@ function MonthGrid({
 
   return (
     <div
-      className="border-border/30 relative h-full flex-shrink-0 border-r border-dashed"
+      className="border-border/30 relative h-full shrink-0 border-r border-dashed"
       style={{ width }}
     >
       {markers.map((day) => {

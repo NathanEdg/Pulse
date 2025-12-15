@@ -8,10 +8,10 @@ export default {
     "./src/server/db/tasks.ts",
     "./src/server/db/cycles.ts",
     "./src/server/db/programs.ts",
+    "./src/server/db/projects.ts",
   ],
   dialect: "postgresql",
   dbCredentials: {
     url: env.DATABASE_URL,
   },
-  tablesFilter: ["pulse_*"],
 } satisfies Config;
