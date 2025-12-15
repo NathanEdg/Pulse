@@ -1,101 +1,6 @@
 "use client";
 
-import {
-  KanbanBoard,
-  type KanbanColumn,
-} from "@/components/dashboard/kanban/kanban";
-import { TaskViewSheet } from "@/components/dashboard/sheets/task-view-sheet";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
-
-const initialData: KanbanColumn[] = [
-  {
-    id: "todo",
-    title: "To Do",
-    color: "#6366f1",
-    tasks: [
-      {
-        id: "1",
-        title: "Design new landing page",
-        description: "Create mockups for the new product launch page",
-        priority: "high",
-        tags: ["design", "ui/ux"],
-      },
-      {
-        id: "2",
-        title: "Research user analytics",
-        description: "Analyze Q4 metrics and prepare report",
-        priority: "medium",
-        tags: ["research", "analytics"],
-      },
-      {
-        id: "3",
-        title: "Update documentation",
-        description: "Add new API endpoints to developer docs",
-        priority: "low",
-        tags: ["docs"],
-      },
-    ],
-  },
-  {
-    id: "in-progress",
-    title: "In Progress",
-    color: "#f59e0b",
-    tasks: [
-      {
-        id: "4",
-        title: "Build authentication flow",
-        description: "Implement OAuth 2.0 with social providers",
-        priority: "high",
-        tags: ["development", "backend"],
-      },
-      {
-        id: "5",
-        title: "Optimize database queries",
-        description: "Reduce API response time by 40%",
-        priority: "medium",
-        tags: ["performance", "backend"],
-      },
-    ],
-  },
-  {
-    id: "review",
-    title: "Review",
-    color: "#8b5cf6",
-    tasks: [
-      {
-        id: "6",
-        title: "Code review for feature branch",
-        description: "Review PR #234 - Payment integration",
-        priority: "high",
-        tags: ["code-review"],
-      },
-    ],
-  },
-  {
-    id: "done",
-    title: "Done",
-    color: "#10b981",
-    tasks: [
-      {
-        id: "7",
-        title: "Deploy staging environment",
-        description: "Set up staging server with new configuration",
-        tags: ["devops", "deployment"],
-      },
-      {
-        id: "8",
-        title: "Fix mobile responsive issues",
-        description: "Resolved layout problems on iOS devices",
-        tags: ["bug-fix", "frontend"],
-      },
-    ],
-  },
-];
-
 export default function DashboardPage() {
-  const [columns, setColumns] = useState(initialData);
-
   return (
     <div className="bg-background flex h-full flex-col">
       <div className="border-border/40 bg-card/30 border-b backdrop-blur-sm">
@@ -109,23 +14,12 @@ export default function DashboardPage() {
                 Manage and track your team&apos;s progress
               </p>
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="text-muted-foreground text-xs">
-                {columns.reduce((acc, col) => acc + col.tasks.length, 0)} tasks
-              </div>
-            </div>
           </div>
         </div>
-      </div>
 
-      <div className="container mx-auto flex-1 overflow-hidden px-6 py-8">
-        <KanbanBoard
-          columns={columns}
-          onColumnsChange={setColumns}
-          onTaskClick={(task) => console.log("Task clicked:", task)}
-          onAddTask={(columnId) => console.log("Add task to:", columnId)}
-        />
+        <div className="container mx-auto flex-1 overflow-hidden px-6 py-8">
+          <h1> tasks </h1>
+        </div>
       </div>
     </div>
   );
