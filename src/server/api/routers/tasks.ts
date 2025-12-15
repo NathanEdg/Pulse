@@ -35,6 +35,147 @@ const registerUpdateHelper = async (
   return newUpdate[0];
 };
 
+const updateTaskHelper = async (
+  ctx: any,
+  input: {
+    id: string;
+    title?: string;
+    description?: string;
+    status?: string;
+    priority?: string;
+    tags?: string[];
+    start_date?: Date;
+    due_date?: Date;
+    subtasks_ids?: string[];
+  },
+) => {
+  const updatedFields: Partial<typeof task.$inferSelect> = {};
+  const prevTaskDb = await ctx.db
+    .select()
+    .from(task)
+    .where(eq(task.id, input.id))
+    .limit(1);
+
+  const prevTask = prevTaskDb[0];
+  if (!prevTask) throw new Error("Task not found");
+
+  if (input.title !== undefined) {
+    updatedFields.title = input.title;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("title-change", {
+        newTitle: input.title,
+        previousTitle: prevTask.title,
+      }),
+      update_type: "title-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.description !== undefined) {
+    updatedFields.description = input.description;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("description-change", {}),
+      update_type: "description-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.status !== undefined) {
+    updatedFields.status = input.status;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("status-change", {
+        newStatus: input.status,
+        previousStatus: prevTask.status,
+      }),
+      update_type: "status-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.priority !== undefined) {
+    updatedFields.priority = input.priority;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("priority-change", {
+        newPriority: input.priority,
+        previousPriority: prevTask.priority,
+      }),
+      update_type: "priority-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.tags !== undefined) {
+    updatedFields.tags = input.tags;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("tag-change", {}),
+      update_type: "tag-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.start_date !== undefined) {
+    updatedFields.start_date = input.start_date;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("date-change", {
+        newStartDate: input.start_date.toISOString(),
+        previousStartDate: prevTask.start_date
+          ? prevTask.start_date.toISOString()
+          : undefined,
+      }),
+      update_type: "date-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.due_date !== undefined) {
+    updatedFields.due_date = input.due_date;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("date-change", {
+        newDueDate: input.due_date.toISOString(),
+        previousDueDate: prevTask.due_date
+          ? prevTask.due_date.toISOString()
+          : undefined,
+      }),
+      update_type: "date-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  if (input.subtasks_ids !== undefined) {
+    updatedFields.subtasks_ids = input.subtasks_ids;
+
+    await registerUpdateHelper(ctx, {
+      task_id: input.id,
+      content: createUpdateContent("subtask-change", {}),
+      update_type: "subtask-change",
+      user_id: ctx.session.user.id,
+    });
+  }
+
+  return await ctx.db
+    .update(task)
+    .set({
+      ...updatedFields,
+      updatedAt: new Date(),
+    })
+    .where(eq(task.id, input.id))
+    .returning();
+};
+
 export const taskRouter = createTRPCRouter({
   getTasks: protectedProcedure.query(async ({ ctx }) => {
     return await ctx.db.select().from(task);
@@ -79,131 +220,7 @@ export const taskRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const updatedFields: Partial<typeof task.$inferSelect> = {};
-      const prevTaskDb = await ctx.db
-        .select()
-        .from(task)
-        .where(eq(task.id, input.id))
-        .limit(1);
-
-      const prevTask = prevTaskDb[0];
-      if (!prevTask) throw new Error("Task not found");
-
-      if (input.title !== undefined) {
-        updatedFields.title = input.title;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("title-change", {
-            newTitle: input.title,
-            previousTitle: prevTask.title,
-          }),
-          update_type: "title-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.description !== undefined) {
-        updatedFields.description = input.description;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("description-change", {}),
-          update_type: "description-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.status !== undefined) {
-        updatedFields.status = input.status;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("status-change", {
-            newStatus: input.status,
-            previousStatus: prevTask.status,
-          }),
-          update_type: "status-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.priority !== undefined) {
-        updatedFields.priority = input.priority;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("priority-change", {
-            newPriority: input.priority,
-            previousPriority: prevTask.priority,
-          }),
-          update_type: "priority-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.tags !== undefined) {
-        updatedFields.tags = input.tags;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("tag-change", {}),
-          update_type: "tag-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.start_date !== undefined) {
-        updatedFields.start_date = input.start_date;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("date-change", {
-            newStartDate: input.start_date.toISOString(),
-            previousStartDate: prevTask.start_date
-              ? prevTask.start_date.toISOString()
-              : undefined,
-          }),
-          update_type: "date-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.due_date !== undefined) {
-        updatedFields.due_date = input.due_date;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("date-change", {
-            newDueDate: input.due_date.toISOString(),
-            previousDueDate: prevTask.due_date
-              ? prevTask.due_date.toISOString()
-              : undefined,
-          }),
-          update_type: "date-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      if (input.subtasks_ids !== undefined) {
-        updatedFields.subtasks_ids = input.subtasks_ids;
-
-        await registerUpdateHelper(ctx, {
-          task_id: input.id,
-          content: createUpdateContent("subtask-change", {}),
-          update_type: "subtask-change",
-          user_id: ctx.session.user.id,
-        });
-      }
-
-      return await ctx.db
-        .update(task)
-        .set({
-          ...updatedFields,
-          updatedAt: new Date(),
-        })
-        .where(eq(task.id, input.id))
-        .returning();
+      return await updateTaskHelper(ctx, input);
     }),
 
   updateTasks: protectedProcedure
@@ -226,134 +243,14 @@ export const taskRouter = createTRPCRouter({
       const results = [];
 
       for (const taskInput of input) {
-        const updatedFields: Partial<typeof task.$inferSelect> = {};
-        const prevTaskDb = await ctx.db
-          .select()
-          .from(task)
-          .where(eq(task.id, taskInput.id))
-          .limit(1);
-
-        const prevTask = prevTaskDb[0];
-        if (!prevTask) continue;
-
-        if (taskInput.title !== undefined) {
-          updatedFields.title = taskInput.title;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("title-change", {
-              newTitle: taskInput.title,
-              previousTitle: prevTask.title,
-            }),
-            update_type: "title-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.description !== undefined) {
-          updatedFields.description = taskInput.description;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("description-change", {}),
-            update_type: "description-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.status !== undefined) {
-          updatedFields.status = taskInput.status;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("status-change", {
-              newStatus: taskInput.status,
-              previousStatus: prevTask.status,
-            }),
-            update_type: "status-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.priority !== undefined) {
-          updatedFields.priority = taskInput.priority;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("priority-change", {
-              newPriority: taskInput.priority,
-              previousPriority: prevTask.priority,
-            }),
-            update_type: "priority-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.tags !== undefined) {
-          updatedFields.tags = taskInput.tags;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("tag-change", {}),
-            update_type: "tag-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.start_date !== undefined) {
-          updatedFields.start_date = taskInput.start_date;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("date-change", {
-              newStartDate: taskInput.start_date.toISOString(),
-              previousStartDate: prevTask.start_date
-                ? prevTask.start_date.toISOString()
-                : undefined,
-            }),
-            update_type: "date-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.due_date !== undefined) {
-          updatedFields.due_date = taskInput.due_date;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("date-change", {
-              newDueDate: taskInput.due_date.toISOString(),
-              previousDueDate: prevTask.due_date
-                ? prevTask.due_date.toISOString()
-                : undefined,
-            }),
-            update_type: "date-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        if (taskInput.subtasks_ids !== undefined) {
-          updatedFields.subtasks_ids = taskInput.subtasks_ids;
-
-          await registerUpdateHelper(ctx, {
-            task_id: taskInput.id,
-            content: createUpdateContent("subtask-change", {}),
-            update_type: "subtask-change",
-            user_id: ctx.session.user.id,
-          });
-        }
-
-        const result = await ctx.db
-          .update(task)
-          .set({
-            ...updatedFields,
-            updatedAt: new Date(),
-          })
-          .where(eq(task.id, taskInput.id))
-          .returning();
-
-        if (result[0]) {
-          results.push(result[0]);
+        try {
+          const result = await updateTaskHelper(ctx, taskInput);
+          if (result[0]) {
+            results.push(result[0]);
+          }
+        } catch (error) {
+          // Skip tasks that are not found
+          continue;
         }
       }
 

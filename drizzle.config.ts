@@ -9,6 +9,7 @@ export default {
     "./src/server/db/cycles.ts",
     "./src/server/db/programs.ts",
     "./src/server/db/projects.ts",
+    "./src/server/db/teams.ts",
   ],
   dialect: "postgresql",
   dbCredentials: {

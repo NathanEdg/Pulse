@@ -5,7 +5,6 @@ import {
   type KanbanColumn,
 } from "@/components/dashboard/kanban/kanban";
 import { TaskViewSheet } from "@/components/dashboard/sheets/task-view-sheet";
-import Timeline from "@/components/Timeline";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -98,7 +97,7 @@ export default function DashboardPage() {
   const [columns, setColumns] = useState(initialData);
 
   return (
-    <div className="bg-background min-h-screen">
+    <div className="bg-background flex h-full flex-col">
       <div className="border-border/40 bg-card/30 border-b backdrop-blur-sm">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
@@ -120,7 +119,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto flex-1 overflow-hidden px-6 py-8">
         <KanbanBoard
           columns={columns}
           onColumnsChange={setColumns}

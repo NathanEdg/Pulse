@@ -36,12 +36,17 @@ import {
   Zap,
   Plus,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import type { NavigationSection } from "./nav-main";
 import DashboardNavigation from "./nav-main";
 import { NotificationsPopover } from "./nav-notifications";
 import { ProgramSwitcher } from "./program-switcher";
 import LogoSvg from "@/components/logo/logo-svg";
+import { api } from "@/trpc/react";
+import { authClient } from "@/server/better-auth/client";
+import { useMemo } from "react";
+import { DynamicIcon, type IconName } from "lucide-react/dynamic";
 
 const sampleNotifications = [
   {
@@ -90,8 +95,8 @@ export const defaultSections: NavigationSection[] = [
         link: "#",
       },
       {
-        id: "this-cycle",
-        title: "This Cycle",
+        id: "current-cycle",
+        title: "Current Cycle",
         icon: <RefreshCcwDot className="size-4" />,
         link: "#",
         subs: [
@@ -208,178 +213,7 @@ export const defaultSections: NavigationSection[] = [
   {
     id: "teams",
     title: "Teams",
-    onActionClick: () => console.log("Add Team action"),
-    actionIcon: <Plus className="size-4" />,
-    routes: [
-      {
-        id: "mechanical",
-        title: "Mechanical",
-        icon: <Hammer className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-      {
-        id: "programming",
-        title: "Programming",
-        icon: <Code className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-      {
-        id: "electrical",
-        title: "Electrical",
-        icon: <Zap className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-      {
-        id: "strategy",
-        title: "Strategy",
-        icon: <NotepadText className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-      {
-        id: "e-team",
-        title: "Entrepreneurship",
-        icon: <BriefcaseBusiness className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-      {
-        id: "ops",
-        title: "Operations",
-        icon: <Handshake className="size-4" />,
-        link: "#",
-        subs: [
-          {
-            title: "Overview",
-            icon: <LayoutDashboard className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Tasks",
-            icon: <CheckSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: "#",
-          },
-          {
-            title: "Views",
-            icon: <View className="size-4" />,
-            link: "#",
-          },
-        ],
-      },
-    ],
+    routes: [],
   },
   {
     id: "admin",
@@ -398,6 +232,128 @@ export const defaultSections: NavigationSection[] = [
 export function DashboardSidebar() {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const user = authClient.useSession();
+
+  const teams = api.teams.getTeamsWithMembership.useQuery({
+    user_id: user.data?.user.id ?? "",
+    program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
+  });
+
+  const userTeams = teams.data?.filter((team) => team.isMember);
+
+  const navigationSections = useMemo(() => {
+    const sections = [...defaultSections];
+    const teamsSection = sections.find((s) => s.id === "teams");
+
+    if (teamsSection && userTeams) {
+      teamsSection.routes = userTeams.map((team) => ({
+        id: team.id,
+        title: team.name,
+        icon: <DynamicIcon name={team.icon as IconName} />,
+        link: `#`,
+        subs: [
+          {
+            title: "Overview",
+            icon: <LayoutDashboard className="size-4" />,
+            link: `/teams/${team.name.toLowerCase()}`,
+          },
+          {
+            title: "Tasks",
+            icon: <CheckSquare className="size-4" />,
+            link: `/teams/${team.name.toLowerCase()}/tasks`,
+          },
+          {
+            title: "Members",
+            icon: <Users className="size-4" />,
+            link: `/teams/${team.name.toLowerCase()}/members`,
+          },
+        ],
+      }));
+    }
+
+    return sections;
+  }, [userTeams]);
+
+  // Show skeleton while teams are loading
+  if (teams.isLoading || !userTeams) {
+    return (
+      <Sidebar variant="inset" collapsible="icon">
+        <SidebarHeader
+          className={cn(
+            "flex md:pt-3.5",
+            isCollapsed
+              ? "flex-row items-center justify-between gap-y-4 md:flex-col md:items-start md:justify-start"
+              : "flex-row items-center justify-between",
+          )}
+        >
+          <a href="#" className="flex items-center gap-2">
+            <LogoSvg className="h-8 w-8" />
+            {!isCollapsed && (
+              <span className="font-semibold text-black dark:text-white">
+                Pulse
+              </span>
+            )}
+          </a>
+
+          <motion.div
+            key={isCollapsed ? "header-collapsed" : "header-expanded"}
+            className={cn(
+              "flex items-center gap-2",
+              isCollapsed ? "flex-row md:flex-col-reverse" : "flex-row",
+            )}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8 }}
+          >
+            <NotificationsPopover notifications={sampleNotifications} />
+            <SidebarTrigger />
+          </motion.div>
+        </SidebarHeader>
+        <SidebarContent className="gap-4 px-2 py-4">
+          <div className="space-y-4">
+            {/* Main section skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+
+            {/* Workspace section skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+
+            {/* Projects section skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+
+            {/* Teams section skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+
+            {/* Admin section skeleton */}
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          </div>
+        </SidebarContent>
+        <SidebarFooter className="px-2">
+          <Skeleton className="h-12 w-full" />
+        </SidebarFooter>
+      </Sidebar>
+    );
+  }
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -433,7 +389,7 @@ export function DashboardSidebar() {
         </motion.div>
       </SidebarHeader>
       <SidebarContent className="gap-4 px-2 py-4">
-        <DashboardNavigation sections={defaultSections} />
+        <DashboardNavigation sections={navigationSections} />
       </SidebarContent>
       <SidebarFooter className="px-2">
         <ProgramSwitcher programs={programs} />
