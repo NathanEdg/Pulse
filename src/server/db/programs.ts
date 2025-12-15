@@ -1,11 +1,4 @@
-import {
-  boolean,
-  index,
-  pgTable,
-  pgTableCreator,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const program = pgTable("program", {
   id: text("id").primaryKey(),

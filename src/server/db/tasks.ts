@@ -28,7 +28,7 @@ export const task = pgTable("task", {
   team_id: text("team_id"),
   title: text("title").notNull(),
   description: text("description"),
-  lead_id: text("lead_id").notNull(),
+  lead_id: text("lead_id"),
   assignees_ids: text("assignees_ids").array().notNull(),
   status: taskStatus("status").notNull(),
   priority: text("priority").notNull(),
@@ -101,6 +101,10 @@ export const taskRelations = relations(task, ({ one, many }) => ({
   project: one(project, {
     fields: [task.project_id],
     references: [project.id],
+  }),
+  priority: one(taskPriority, {
+    fields: [task.priority],
+    references: [taskPriority.id],
   }),
   assignees: many(taskAssignee),
   lead: one(user, {

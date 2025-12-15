@@ -1,12 +1,4 @@
-import {
-  boolean,
-  index,
-  integer,
-  pgTable,
-  pgTableCreator,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
+import { integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const project = pgTable("project", {
   id: text("id").primaryKey(),

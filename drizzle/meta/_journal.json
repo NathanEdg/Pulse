@@ -43,6 +43,20 @@
       "when": 1765680028164,
       "tag": "0005_faithful_christian_walker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1765761857017,
+      "tag": "0006_true_jackpot",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1765765472985,
+      "tag": "0007_long_killmonger",
+      "breakpoints": true
     }
   ]
 }

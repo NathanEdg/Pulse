@@ -254,22 +254,17 @@ export function DashboardSidebar() {
           {
             title: "Overview",
             icon: <LayoutDashboard className="size-4" />,
-            link: `#`,
+            link: `/teams/${team.name.toLowerCase()}`,
           },
           {
             title: "Tasks",
             icon: <CheckSquare className="size-4" />,
-            link: `#`,
-          },
-          {
-            title: "Updates",
-            icon: <MessageSquare className="size-4" />,
-            link: `#`,
+            link: `/teams/${team.name.toLowerCase()}/tasks`,
           },
           {
             title: "Members",
             icon: <Users className="size-4" />,
-            link: `#`,
+            link: `/teams/${team.name.toLowerCase()}/members`,
           },
         ],
       }));

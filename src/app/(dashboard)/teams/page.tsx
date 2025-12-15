@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Users, Plus, ArrowRight, CheckCircle2, X } from "lucide-react";
+import { Users, Plus, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { PageContainer } from "@/components/util/page-container";
 import { useState } from "react";

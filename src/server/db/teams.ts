@@ -12,8 +12,6 @@ export const team = pgTable("team", {
   description: text("description"),
   color: text("color"),
   icon: text("icon"),
-  lead_id: text("lead_id").references(() => user.id),
-  colead_id: text("colead_id").references(() => user.id),
   private: boolean("private").notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
@@ -41,16 +39,6 @@ export const teamRelations = relations(team, ({ one, many }) => ({
   program: one(program, {
     fields: [team.program_id],
     references: [program.id],
-  }),
-  lead: one(user, {
-    fields: [team.lead_id],
-    references: [user.id],
-    relationName: "teamLead",
-  }),
-  colead: one(user, {
-    fields: [team.colead_id],
-    references: [user.id],
-    relationName: "teamColead",
   }),
   teamMembers: many(team_member),
 }));

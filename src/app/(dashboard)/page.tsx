@@ -1,9 +1,12 @@
-"use client"
+"use client";
 
-import { KanbanBoard, type KanbanColumn } from "@/components/dashboard/kanban/kanban"
-import { TaskViewSheet } from "@/components/dashboard/sheets/task-view-sheet"
-import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import {
+  KanbanBoard,
+  type KanbanColumn,
+} from "@/components/dashboard/kanban/kanban";
+import { TaskViewSheet } from "@/components/dashboard/sheets/task-view-sheet";
+import { Button } from "@/components/ui/button";
+import { useState } from "react";
 
 const initialData: KanbanColumn[] = [
   {
@@ -88,22 +91,27 @@ const initialData: KanbanColumn[] = [
       },
     ],
   },
-]
+];
 
 export default function DashboardPage() {
-  const [columns, setColumns] = useState(initialData)
+  const [columns, setColumns] = useState(initialData);
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/30 backdrop-blur-sm">
+    <div className="bg-background flex h-full flex-col">
+      <div className="border-border/40 bg-card/30 border-b backdrop-blur-sm">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">Project Board</h1>
-              <p className="text-sm text-muted-foreground">Manage and track your team&apos;s progress</p>
+              <h1 className="text-foreground mb-1 text-3xl font-bold">
+                Project Board
+              </h1>
+              <p className="text-muted-foreground text-sm">
+                Manage and track your team&apos;s progress
+              </p>
             </div>
-            <TaskViewSheet trigger={<Button>Open Task</Button>} selectedTask={
-              {
+            <TaskViewSheet
+              trigger={<Button>Open Task</Button>}
+              selectedTask={{
                 id: "4",
                 program_id: "prog_123",
                 cycle_id: "cycle_001",
@@ -121,7 +129,7 @@ export default function DashboardPage() {
               }}
             />
             <div className="flex items-center gap-3">
-              <div className="text-xs text-muted-foreground">
+              <div className="text-muted-foreground text-xs">
                 {columns.reduce((acc, col) => acc + col.tasks.length, 0)} tasks
               </div>
             </div>
@@ -129,7 +137,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="container mx-auto flex-1 overflow-hidden px-6 py-8">
         <KanbanBoard
           columns={columns}
           onColumnsChange={setColumns}
@@ -138,5 +146,5 @@ export default function DashboardPage() {
         />
       </div>
     </div>
-  )
+  );
 }

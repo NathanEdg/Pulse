@@ -88,6 +88,50 @@ export const teamRouter = createTRPCRouter({
       return members;
     }),
 
+  setLead: protectedProcedure
+    .input(z.object({ team_id: z.string(), user_id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(team_member)
+        .set({ role: "lead" })
+        .where(
+          and(
+            eq(team_member.team_id, input.team_id),
+            eq(team_member.user_id, input.user_id),
+          ),
+        );
+
+      return { success: true };
+    }),
+
+  setCoLead: protectedProcedure
+    .input(z.object({ team_id: z.string(), user_id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(team_member)
+        .set({ role: "co-lead" })
+        .where(
+          and(
+            eq(team_member.team_id, input.team_id),
+            eq(team_member.user_id, input.user_id),
+          ),
+        );
+    }),
+
+  setMember: protectedProcedure
+    .input(z.object({ team_id: z.string(), user_id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(team_member)
+        .set({ role: "member" })
+        .where(
+          and(
+            eq(team_member.team_id, input.team_id),
+            eq(team_member.user_id, input.user_id),
+          ),
+        );
+    }),
+
   checkMembership: protectedProcedure
     .input(z.object({ team_id: z.string(), user_id: z.string() }))
     .query(async ({ ctx, input }) => {

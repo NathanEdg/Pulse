@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
-import { taskPriority, taskStatus } from "@/server/db/tasks";
+import { taskPriority } from "@/server/db/tasks";
 
 export const settingsRouter = createTRPCRouter({
   createPriority: protectedProcedure
