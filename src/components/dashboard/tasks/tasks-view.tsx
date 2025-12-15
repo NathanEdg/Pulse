@@ -3,6 +3,7 @@
 import type { ViewType } from "./view-switcher";
 import type { api } from "@/trpc/server";
 import { KanbanView } from "./views/kanban-view";
+import { GanttView } from "./views/gantt-view";
 
 type TasksViewProps = {
   view: ViewType;
@@ -24,8 +25,8 @@ export function TasksView({
       )}
 
       {view === "timeline" && (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-muted-foreground">Timeline view coming soon...</p>
+        <div className="flex-1 overflow-hidden">
+          <GanttView tasks={_tasks} teamName={_teamName} />
         </div>
       )}
 

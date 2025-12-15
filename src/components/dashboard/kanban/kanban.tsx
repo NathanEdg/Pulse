@@ -76,7 +76,7 @@ function TaskCard({
   return (
     <Card
       className={cn(
-        "group border-border/50 bg-card/50 hover:border-border hover:bg-card/80 cursor-pointer p-4 backdrop-blur-sm transition-all hover:shadow-lg",
+        "group border-border/50 bg-card/50 hover:border-border hover:bg-card/80 cursor-pointer p-4 backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] hover:shadow-lg",
         isDragging && "opacity-50",
       )}
       onDoubleClick={onClick}
@@ -90,7 +90,7 @@ function TaskCard({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+              className="h-6 w-6 shrink-0 opacity-0 transition-all duration-200 group-hover:opacity-100"
               onClick={(e) => e.stopPropagation()}
             >
               <MoreHorizontal className="h-3.5 w-3.5" />
@@ -198,7 +198,7 @@ function SortableTask({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: transition || "transform 200ms ease",
   };
 
   return (
@@ -235,10 +235,7 @@ function KanbanColumnComponent({
   });
 
   return (
-    <div
-      ref={setNodeRef}
-      className="flex h-full max-w-95 min-w-[320px] shrink-0 flex-col"
-    >
+    <div ref={setNodeRef} className="flex h-full w-[320px] shrink-0 flex-col">
       <div className="mb-4 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <div
@@ -267,15 +264,21 @@ function KanbanColumnComponent({
 
       {/* Tasks are sorted by priority and cannot be manually reordered within columns */}
       <SortableContext items={tasks} strategy={verticalListSortingStrategy}>
-        <div className="bg-muted/20 border-border/40 flex-1 space-y-3 overflow-y-auto rounded-xl border p-3">
-          {tasks.map((task) => (
-            <SortableTask
+        <div className="bg-muted/20 border-border/40 flex-1 space-y-3 overflow-y-auto rounded-xl border p-3 transition-all duration-200">
+          {tasks.map((task, index) => (
+            <div
               key={task.id}
-              task={task}
-              onClick={() => onTaskClick?.(task)}
-              onEdit={() => onTaskEdit?.(task)}
-              onDelete={() => onTaskDelete?.(task)}
-            />
+              style={{
+                animation: `fadeIn 300ms ease-out ${index * 50}ms both`,
+              }}
+            >
+              <SortableTask
+                task={task}
+                onClick={() => onTaskClick?.(task)}
+                onEdit={() => onTaskEdit?.(task)}
+                onDelete={() => onTaskDelete?.(task)}
+              />
+            </div>
           ))}
         </div>
       </SortableContext>
@@ -416,34 +419,54 @@ export function KanbanBoard({
   };
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={handleDragStart}
-      onDragOver={handleDragOver}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="flex h-full gap-6 overflow-x-auto pt-2 pb-4">
-        {columns.map((column) => (
-          <KanbanColumnComponent
-            key={column.id}
-            column={column}
-            tasks={column.tasks}
-            onAddTask={() => onAddTask?.(column.id)}
-            onTaskClick={onTaskClick}
-            onTaskEdit={onTaskEdit}
-            onTaskDelete={onTaskDelete}
-          />
-        ))}
-      </div>
+    <>
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex h-full gap-6 overflow-x-auto pt-2 pb-4">
+          {columns.map((column, index) => (
+            <div
+              key={column.id}
+              style={{
+                animation: `fadeIn 400ms ease-out ${index * 100}ms both`,
+              }}
+            >
+              <KanbanColumnComponent
+                column={column}
+                tasks={column.tasks}
+                onAddTask={() => onAddTask?.(column.id)}
+                onTaskClick={onTaskClick}
+                onTaskEdit={onTaskEdit}
+                onTaskDelete={onTaskDelete}
+              />
+            </div>
+          ))}
+        </div>
 
-      <DragOverlay>
-        {activeTask ? (
-          <div className="scale-105 rotate-3">
-            <TaskCard task={activeTask} />
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+        <DragOverlay>
+          {activeTask ? (
+            <div className="scale-105 rotate-3 transition-transform duration-200">
+              <TaskCard task={activeTask} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+    </>
   );
 }

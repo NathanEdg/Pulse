@@ -3,13 +3,16 @@ import { program } from "./programs";
 import { cycle } from "./cycles";
 import { project } from "./projects";
 import { user } from "./schema";
-import { task, taskDependency } from "./tasks";
+import { task, taskDependency, taskPriority } from "./tasks";
 
 const SEED_PROGRAM_ID = "program-seed-1";
 const SEED_USER_ID_1 = "user-seed-1";
 const SEED_USER_ID_2 = "user-seed-2";
 const SEED_PROJECT_ID_1 = "project-seed-1";
 const SEED_PROJECT_ID_2 = "project-seed-2";
+const SEED_PRIORITY_LOW = "priority-seed-low";
+const SEED_PRIORITY_MEDIUM = "priority-seed-medium";
+const SEED_PRIORITY_HIGH = "priority-seed-high";
 
 async function seed() {
   console.log("🌱 Seeding database...");
@@ -121,7 +124,39 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
-  // 5. Create Tasks
+  // 5. Create Task Priorities
+  console.log("Creating task priorities...");
+  await db
+    .insert(taskPriority)
+    .values([
+      {
+        id: SEED_PRIORITY_LOW,
+        name: "Low",
+        program_id: SEED_PROGRAM_ID,
+        color: "#22c55e", // green-500
+        sort_order: "1",
+        description: "Low priority tasks",
+      },
+      {
+        id: SEED_PRIORITY_MEDIUM,
+        name: "Medium",
+        program_id: SEED_PROGRAM_ID,
+        color: "#eab308", // yellow-500
+        sort_order: "2",
+        description: "Medium priority tasks",
+      },
+      {
+        id: SEED_PRIORITY_HIGH,
+        name: "High",
+        program_id: SEED_PROGRAM_ID,
+        color: "#ef4444", // red-500
+        sort_order: "3",
+        description: "High priority tasks",
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 6. Create Tasks
   console.log("Creating tasks...");
   const task1Id = "task-seed-1";
   const task2Id = "task-seed-2";
@@ -141,8 +176,8 @@ async function seed() {
         description: "Review existing components",
         lead_id: SEED_USER_ID_1,
         assignees_ids: [SEED_USER_ID_1],
-        status: "done",
-        priority: "medium",
+        status: "completed",
+        priority: SEED_PRIORITY_MEDIUM,
         tags: ["design", "audit"],
         depends_on: [],
         start_date: twoWeeksAgo,
@@ -158,8 +193,8 @@ async function seed() {
         description: "Plan the new schema",
         lead_id: SEED_USER_ID_2,
         assignees_ids: [SEED_USER_ID_2],
-        status: "done",
-        priority: "high",
+        status: "completed",
+        priority: SEED_PRIORITY_HIGH,
         tags: ["backend", "db"],
         depends_on: [],
         start_date: new Date(twoWeeksAgo.getTime() + 1 * 24 * 60 * 60 * 1000),
@@ -175,8 +210,8 @@ async function seed() {
         description: "Create the button component based on new design",
         lead_id: SEED_USER_ID_1,
         assignees_ids: [SEED_USER_ID_1, SEED_USER_ID_2],
-        status: "in-progress",
-        priority: "medium",
+        status: "in_progress",
+        priority: SEED_PRIORITY_MEDIUM,
         tags: ["frontend", "ui"],
         depends_on: [task1Id],
         start_date: oneWeekAgo,
@@ -192,8 +227,8 @@ async function seed() {
         description: "Implement the user endpoints",
         lead_id: SEED_USER_ID_2,
         assignees_ids: [SEED_USER_ID_2],
-        status: "todo",
-        priority: "high",
+        status: "backlog",
+        priority: SEED_PRIORITY_HIGH,
         tags: ["backend", "api"],
         depends_on: [task2Id],
         start_date: new Date(oneWeekAgo.getTime() + 2 * 24 * 60 * 60 * 1000),
@@ -209,8 +244,8 @@ async function seed() {
         description: "Test frontend with backend",
         lead_id: SEED_USER_ID_1,
         assignees_ids: [SEED_USER_ID_1, SEED_USER_ID_2],
-        status: "todo",
-        priority: "high",
+        status: "backlog",
+        priority: SEED_PRIORITY_HIGH,
         tags: ["qa"],
         depends_on: [task3Id, task4Id],
         start_date: oneWeekFromNow,
@@ -220,7 +255,7 @@ async function seed() {
     ])
     .onConflictDoNothing();
 
-  // 6. Create Task Dependencies (Relation Table)
+  // 7. Create Task Dependencies (Relation Table)
   console.log("Creating task dependencies...");
   await db
     .insert(taskDependency)

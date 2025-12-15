@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { api } from "@/trpc/react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   X,
   Paperclip,
@@ -17,6 +19,8 @@ import {
   GitBranch,
   CalendarIcon,
   Users,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import {
   Dialog,
@@ -80,58 +84,13 @@ interface CreateTaskDialogProps {
   defaultLabels?: string[];
   defaultStartDate?: Date | null;
   defaultEndDate?: Date | null;
-  onTaskCreate?: (task: {
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    project: string;
-    leader: string;
-    assignees: string[];
-    labels: string[];
-    cycle: string;
-    team: string;
-    startDate?: Date | null;
-    endDate?: Date | null;
-    subtasks: Array<{
-      id: string;
-      title: string;
-      description: string;
-      status: string;
-      priority: string;
-      assignee: string;
-    }>;
-  }) => void;
-  onTaskUpdate?: (task: {
-    id: string;
-    title: string;
-    description: string;
-    status: string;
-    priority: string;
-    project: string;
-    leader: string;
-    assignees: string[];
-    labels: string[];
-    cycle: string;
-    team: string;
-    startDate?: Date | null;
-    endDate?: Date | null;
-    subtasks: Array<{
-      id: string;
-      title: string;
-      description: string;
-      status: string;
-      priority: string;
-      assignee: string;
-    }>;
-  }) => void;
 }
 
 export function CreateTaskDialog({
   open,
   onOpenChange,
   _teamId,
-  _programId = "4287f030-7ee1-4025-bb03-0074fff9afd9",
+  _programId = "program-seed-1",
   children,
   taskId,
   defaultTitle = "",
@@ -146,9 +105,8 @@ export function CreateTaskDialog({
   defaultLabels = [],
   defaultStartDate = null,
   defaultEndDate = null,
-  onTaskCreate,
-  onTaskUpdate,
 }: CreateTaskDialogProps) {
+  const router = useRouter();
   const isEditMode = !!taskId;
   const [title, setTitle] = useState(defaultTitle);
   const [description, setDescription] = useState(defaultDescription);
@@ -184,6 +142,8 @@ export function CreateTaskDialog({
       status: string;
       priority: string;
       assignee: string;
+      isNew?: boolean;
+      isDeleted?: boolean;
     }>
   >([]);
   const [subtaskTitle, setSubtaskTitle] = useState("");
@@ -193,8 +153,57 @@ export function CreateTaskDialog({
   const [subtaskAssignee, setSubtaskAssignee] = useState("");
   const [showConfirmClose, setShowConfirmClose] = useState(false);
 
+  // API Queries
   const { data: priorities = [] } = api.settings.getPriorities.useQuery({
     program_id: _programId,
+  });
+
+  const { data: existingSubtasks = [] } = api.tasks.getSubtasks.useQuery(
+    { task_id: taskId! },
+    {
+      enabled: isEditMode && !!taskId,
+      refetchOnMount: true,
+      refetchOnWindowFocus: false,
+    },
+  );
+
+  // API Mutations
+  const createTaskMutation = api.tasks.createTask.useMutation({
+    onSuccess: () => {
+      toast.success("Task created successfully!");
+      router.refresh();
+    },
+    onError: (error) => {
+      toast.error(`Failed to create task: ${error.message}`);
+    },
+  });
+
+  const updateTaskMutation = api.tasks.updateTask.useMutation({
+    onSuccess: () => {
+      toast.success("Task updated successfully!");
+      router.refresh();
+    },
+    onError: (error) => {
+      toast.error(`Failed to update task: ${error.message}`);
+    },
+  });
+
+  const createSubtaskMutation = api.tasks.createSubtask.useMutation({
+    onError: (error) => {
+      toast.error(`Failed to create subtask: ${error.message}`);
+    },
+  });
+
+  const updateSubtaskMutation = api.tasks.updateSubtask.useMutation({
+    onError: (error) => {
+      toast.error(`Failed to update subtask: ${error.message}`);
+    },
+  });
+
+  const deleteSubtaskMutation = api.tasks.deleteSubtask.useMutation({
+    onError: (error) => {
+      toast.error(`Failed to delete subtask: ${error.message}`);
+    },
   });
 
   const statuses = [
@@ -239,6 +248,31 @@ export function CreateTaskDialog({
   // Track previous open state to detect when dialog opens
   const prevOpenRef = useRef(open);
 
+  // Load existing subtasks when they become available in edit mode
+  useEffect(() => {
+    console.log("Subtask effect running:", {
+      isEditMode,
+      subtasksCount: existingSubtasks.length,
+      open,
+      taskId,
+    });
+    if (isEditMode && existingSubtasks.length > 0 && open) {
+      console.log("Loading subtasks:", existingSubtasks);
+      setSubtasks(
+        existingSubtasks.map((st) => ({
+          id: st.id,
+          title: st.title,
+          description: st.description || "",
+          status: st.status,
+          priority: st.priority,
+          assignee: st.assignee_id || "",
+          isNew: false,
+          isDeleted: false,
+        })),
+      );
+    }
+  }, [isEditMode, existingSubtasks, open, taskId]);
+
   // Sync props with state when dialog transitions from closed to open
   useEffect(() => {
     if (open && !prevOpenRef.current) {
@@ -249,18 +283,23 @@ export function CreateTaskDialog({
       // Find team by name or ID (case-insensitive)
       const matchedTeam = teams.find(
         (t) =>
-          t.id === defaultTeam ||
-          t.name.toLowerCase() === defaultTeam.toLowerCase(),
+          t.name.toLowerCase() === defaultTeam.toLowerCase() ||
+          t.id === defaultTeam,
       );
-      // Use matched team, or fallback to first team if available, or use defaultTeam
-      setSelectedTeam(matchedTeam?.id ?? teams[0]?.id ?? defaultTeam);
-      setSelectedProject(defaultProject);
-      setSelectedLeader(defaultLeader);
+      setSelectedTeam(matchedTeam?.id || teams[0]?.id || "");
+      setSelectedProject(defaultProject || "");
+      setSelectedLeader(defaultLeader || "");
       setSelectedAssignees(defaultAssignees);
-      setSelectedCycle(defaultCycle);
+      setSelectedCycle(defaultCycle || "current");
       setSelectedLabels(defaultLabels);
       setStartDate(defaultStartDate ?? undefined);
       setEndDate(defaultEndDate ?? undefined);
+
+      // Reset subtasks if not in edit mode
+      // (subtasks in edit mode are loaded by a separate effect)
+      if (!isEditMode) {
+        setSubtasks([]);
+      }
     }
     prevOpenRef.current = open;
   }, [
@@ -278,6 +317,7 @@ export function CreateTaskDialog({
     defaultStartDate,
     defaultEndDate,
     teams,
+    isEditMode,
   ]);
 
   // Set first team as default when teams are loaded and no team is selected
@@ -286,6 +326,86 @@ export function CreateTaskDialog({
       setSelectedTeam(teams[0]?.id ?? "");
     }
   }, [teams, selectedTeam]);
+
+  // Handle subtask submission (used by both button click and keyboard shortcut)
+  const handleSubtaskSubmit = useCallback(() => {
+    if (!subtaskTitle.trim()) return;
+
+    if (editingSubtaskId) {
+      // Update existing subtask
+      setSubtasks((prev) =>
+        prev.map((s) =>
+          s.id === editingSubtaskId
+            ? {
+                id: s.id,
+                title: subtaskTitle,
+                description: subtaskDescription,
+                status: subtaskStatus,
+                priority: subtaskPriority,
+                assignee: subtaskAssignee,
+                isNew: s.isNew,
+                isDeleted: false,
+              }
+            : s,
+        ),
+      );
+    } else {
+      // Add new subtask
+      const newSubtask = {
+        id: crypto.randomUUID(),
+        title: subtaskTitle,
+        description: subtaskDescription,
+        status: subtaskStatus,
+        priority: subtaskPriority,
+        assignee: subtaskAssignee,
+        isNew: true,
+        isDeleted: false,
+      };
+      setSubtasks((prev) => [...prev, newSubtask]);
+    }
+    setShowSubtaskForm(false);
+    setEditingSubtaskId(null);
+    setSubtaskTitle("");
+    setSubtaskDescription("");
+    setSubtaskStatus("backlog");
+    setSubtaskPriority("");
+    setSubtaskAssignee("");
+  }, [
+    subtaskTitle,
+    editingSubtaskId,
+    subtaskDescription,
+    subtaskStatus,
+    subtaskPriority,
+    subtaskAssignee,
+  ]);
+
+  // Handle Ctrl/Cmd+Enter keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if Ctrl (Windows/Linux) or Cmd (Mac) + Enter is pressed
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+
+        // If subtask form is open, submit subtask
+        if (showSubtaskForm) {
+          handleSubtaskSubmit();
+        }
+        // Otherwise submit main task if valid (check inline)
+        else if (
+          !showSubtaskForm &&
+          title.trim().length > 0 &&
+          description.trim().length > 0
+        ) {
+          handleSubmit();
+        }
+      }
+    };
+
+    if (open) {
+      window.addEventListener("keydown", handleKeyDown);
+      return () => window.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [open, showSubtaskForm, title, description, handleSubtaskSubmit]);
 
   // Check if form has unsaved changes (differs from defaults)
   const hasUnsavedChanges = () => {
@@ -352,51 +472,157 @@ export function CreateTaskDialog({
     setShowConfirmClose(false);
   };
 
-  const handleSubmit = () => {
-    const taskData = {
-      title,
-      description,
-      status: selectedStatus,
-      priority: selectedPriority,
-      project: selectedProject,
-      leader: selectedLeader,
-      assignees: selectedAssignees,
-      labels: selectedLabels,
-      cycle: selectedCycle,
-      team: selectedTeam,
-      startDate: startDate ?? null,
-      endDate: endDate ?? null,
-      subtasks: subtasks,
-    };
-
-    // Call the appropriate callback based on mode
+  const handleSubmit = async () => {
     if (isEditMode && taskId) {
-      onTaskUpdate?.({ id: taskId, ...taskData });
-    } else {
-      onTaskCreate?.(taskData);
-    }
+      // Handle task update
+      try {
+        // Handle subtask changes
+        const newSubtasks = subtasks.filter((st) => st.isNew && !st.isDeleted);
+        const updatedSubtasks = subtasks.filter(
+          (st) => !st.isNew && !st.isDeleted,
+        );
+        const deletedSubtasks = subtasks.filter((st) => st.isDeleted);
 
-    if (!createMore) {
-      resetForm();
-      onOpenChange?.(false);
+        // Create new subtasks
+        const createdSubtaskIds: string[] = [];
+        for (const subtask of newSubtasks) {
+          const result = await createSubtaskMutation.mutateAsync({
+            title: subtask.title,
+            description: subtask.description,
+            task_id: taskId,
+            priority: subtask.priority,
+            status: subtask.status,
+            assignee_id: subtask.assignee || undefined,
+          });
+          if (result?.[0]?.id) {
+            createdSubtaskIds.push(result[0].id);
+          }
+        }
+
+        // Update existing subtasks
+        for (const subtask of updatedSubtasks) {
+          await updateSubtaskMutation.mutateAsync({
+            id: subtask.id,
+            title: subtask.title,
+            description: subtask.description,
+            status: subtask.status as
+              | "backlog"
+              | "planned"
+              | "in_progress"
+              | "completed"
+              | "cancelled",
+            priority: subtask.priority,
+            assignee_id: subtask.assignee || undefined,
+          });
+        }
+
+        // Delete removed subtasks
+        for (const subtask of deletedSubtasks) {
+          if (!subtask.isNew) {
+            await deleteSubtaskMutation.mutateAsync({ id: subtask.id });
+          }
+        }
+
+        // Get all current subtask IDs (existing + newly created)
+        const allSubtaskIds = [
+          ...updatedSubtasks.map((st) => st.id),
+          ...createdSubtaskIds,
+        ];
+
+        // Update the task
+        await updateTaskMutation.mutateAsync({
+          id: taskId,
+          title,
+          description,
+          status: selectedStatus as
+            | "backlog"
+            | "planned"
+            | "in_progress"
+            | "completed"
+            | "cancelled",
+          priority: selectedPriority,
+          tags: selectedLabels,
+          start_date: startDate ?? null,
+          due_date: endDate ?? null,
+          subtasks_ids: allSubtaskIds,
+        });
+
+        resetForm();
+        onOpenChange?.(false);
+      } catch (error) {
+        console.error("Error updating task:", error);
+      }
     } else {
-      // Reset main form and subtasks for next task, but keep defaults
-      setTitle("");
-      setDescription("");
-      setSelectedStatus(defaultStatus);
-      setSelectedPriority(defaultPriority);
-      setSelectedProject(defaultProject);
-      setSelectedLeader(defaultLeader);
-      setSelectedAssignees(defaultAssignees);
-      setSelectedLabels(defaultLabels);
-      setSubtasks([]);
-      setShowSubtaskForm(false);
-      setEditingSubtaskId(null);
-      setSubtaskTitle("");
-      setSubtaskDescription("");
-      setSubtaskStatus("backlog");
-      setSubtaskPriority("");
-      setSubtaskAssignee("");
+      // Handle task creation
+      try {
+        // Create the task first
+        const taskResult = await createTaskMutation.mutateAsync({
+          title,
+          description,
+          status: selectedStatus,
+          priority: selectedPriority,
+          project: selectedProject,
+          leader: selectedLeader,
+          assignees: selectedAssignees,
+          labels: selectedLabels,
+          cycle: selectedCycle,
+          team: selectedTeam,
+          program_id: _programId,
+          start_date: startDate ?? null,
+          due_date: endDate ?? null,
+          subtask_ids: [],
+        });
+
+        // Get the created task ID
+        const createdTaskId = taskResult?.id;
+
+        // Now create subtasks with the real task ID
+        const subtaskIds: string[] = [];
+        if (createdTaskId) {
+          const subtasksToCreate = subtasks.filter((st) => !st.isDeleted);
+
+          for (const subtask of subtasksToCreate) {
+            const result = await createSubtaskMutation.mutateAsync({
+              title: subtask.title,
+              description: subtask.description,
+              task_id: createdTaskId,
+              priority: subtask.priority,
+              status: subtask.status,
+              assignee_id: subtask.assignee || undefined,
+            });
+            if (result?.[0]?.id) {
+              subtaskIds.push(result[0].id);
+            }
+          }
+
+          // Update the task with subtask IDs if any were created
+          if (subtaskIds.length > 0) {
+            await updateTaskMutation.mutateAsync({
+              id: createdTaskId,
+              subtasks_ids: subtaskIds,
+            });
+          }
+        }
+
+        if (!createMore) {
+          resetForm();
+          onOpenChange?.(false);
+        } else {
+          // Reset main form and subtasks for next task, but keep defaults
+          setTitle("");
+          setDescription("");
+          setSubtasks([]);
+          setShowSubtaskForm(false);
+          setEditingSubtaskId(null);
+          setSubtaskTitle("");
+          setSubtaskDescription("");
+          setSubtaskStatus("backlog");
+          setSubtaskPriority("");
+          setSubtaskAssignee("");
+        }
+      } catch (error) {
+        console.error("Error creating task:", error);
+      }
     }
   };
 
@@ -505,7 +731,9 @@ export function CreateTaskDialog({
                 </SelectContent>
               </Select>
               <span className="text-muted-foreground/50">&gt;</span>
-              <span className="text-muted-foreground">New Task</span>
+              <span className="text-muted-foreground">
+                {title.trim() || "New Task"}
+              </span>
             </div>
             <div className="ml-auto">
               <Button
@@ -757,15 +985,13 @@ export function CreateTaskDialog({
               </Popover>
 
               {/* Cycle */}
-              <Select
-                value={selectedCycle}
-                onValueChange={(value) =>
-                  setSelectedCycle(value === "current" ? "" : value)
-                }
-              >
+              <Select value={selectedCycle} onValueChange={setSelectedCycle}>
                 <SelectTrigger className="text-muted-foreground border-input hover:bg-accent hover:text-foreground h-8 w-auto gap-2 bg-transparent text-xs font-normal">
                   <RefreshCw className="h-3.5 w-3.5" />
-                  <SelectValue />
+                  <SelectValue>
+                    {cycles.find((c) => c.id === (selectedCycle || "current"))
+                      ?.name || "Current"}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent align="end">
                   {cycles.map((cycle) => (
@@ -804,6 +1030,18 @@ export function CreateTaskDialog({
                     onSelect={setStartDate}
                     initialFocus
                   />
+                  {startDate && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setStartDate(undefined)}
+                      >
+                        Clear Date
+                      </Button>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
 
@@ -826,6 +1064,18 @@ export function CreateTaskDialog({
                     onSelect={setEndDate}
                     initialFocus
                   />
+                  {endDate && (
+                    <div className="border-t p-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setEndDate(undefined)}
+                      >
+                        Clear Date
+                      </Button>
+                    </div>
+                  )}
                 </PopoverContent>
               </Popover>
 
@@ -966,77 +1216,100 @@ export function CreateTaskDialog({
                       Add subtask
                     </Button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="max-h-60 space-y-2 overflow-y-auto pr-2">
                     <AnimatePresence mode="popLayout">
-                      {subtasks.map((subtask, index) => (
-                        <motion.div
-                          key={subtask.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: 20, height: 0 }}
-                          transition={{ duration: 0.3, delay: index * 0.05 }}
-                          whileHover={{ scale: 1.01 }}
-                          className="bg-muted/50 hover:bg-muted/70 flex cursor-pointer items-center justify-between rounded-md p-3 transition-colors duration-200"
-                          onDoubleClick={() => {
-                            setEditingSubtaskId(subtask.id);
-                            setSubtaskTitle(subtask.title);
-                            setSubtaskDescription(subtask.description);
-                            setSubtaskStatus(subtask.status);
-                            setSubtaskPriority(subtask.priority);
-                            setSubtaskAssignee(subtask.assignee);
-                            setShowSubtaskForm(true);
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {subtask.title}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {subtask.assignee &&
-                              (() => {
-                                const member = members.find(
-                                  (m) => m.userId === subtask.assignee,
-                                );
-                                if (!member) return null;
-                                const initials = member.user.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                                  .toUpperCase();
-                                return (
-                                  <Avatar className="size-5">
-                                    <AvatarFallback className="text-[8px]">
-                                      {initials}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                );
-                              })()}
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0"
-                                >
-                                  <MoreVertical className="h-3 w-3" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    setSubtasks((prev) =>
-                                      prev.filter((s) => s.id !== subtask.id),
-                                    )
-                                  }
-                                >
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </motion.div>
-                      ))}
+                      {subtasks
+                        .filter((st) => !st.isDeleted)
+                        .map((subtask, index) => (
+                          <motion.div
+                            key={subtask.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 20, height: 0 }}
+                            transition={{ duration: 0.3, delay: index * 0.05 }}
+                            whileHover={{ scale: 1.01 }}
+                            className="bg-muted/50 hover:bg-muted/70 flex cursor-pointer items-center justify-between rounded-md p-3 transition-colors duration-200"
+                            onDoubleClick={() => {
+                              setEditingSubtaskId(subtask.id);
+                              setSubtaskTitle(subtask.title);
+                              setSubtaskDescription(subtask.description);
+                              setSubtaskStatus(subtask.status);
+                              setSubtaskPriority(subtask.priority);
+                              setSubtaskAssignee(subtask.assignee);
+                              setShowSubtaskForm(true);
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">
+                                {subtask.title}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {subtask.assignee &&
+                                (() => {
+                                  const member = members.find(
+                                    (m) => m.userId === subtask.assignee,
+                                  );
+                                  if (!member) return null;
+                                  const initials = member.user.name
+                                    .split(" ")
+                                    .map((n) => n[0])
+                                    .join("")
+                                    .toUpperCase();
+                                  return (
+                                    <Avatar className="size-5">
+                                      <AvatarFallback className="text-[8px]">
+                                        {initials}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  );
+                                })()}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                  >
+                                    <MoreVertical className="h-3 w-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setEditingSubtaskId(subtask.id);
+                                      setSubtaskTitle(subtask.title);
+                                      setSubtaskDescription(
+                                        subtask.description,
+                                      );
+                                      setSubtaskStatus(subtask.status);
+                                      setSubtaskPriority(subtask.priority);
+                                      setSubtaskAssignee(subtask.assignee);
+                                      setShowSubtaskForm(true);
+                                    }}
+                                  >
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      setSubtasks((prev) =>
+                                        prev.map((s) =>
+                                          s.id === subtask.id
+                                            ? { ...s, isDeleted: true }
+                                            : s,
+                                        ),
+                                      )
+                                    }
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </motion.div>
+                        ))}
                     </AnimatePresence>
                   </div>
                 </motion.div>
@@ -1051,7 +1324,7 @@ export function CreateTaskDialog({
                   animate={{ opacity: 1, height: "auto", scale: 1 }}
                   exit={{ opacity: 0, height: 0, scale: 0.95 }}
                   transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                  className="overflow-hidden"
+                  className="max-h-96 overflow-hidden overflow-y-auto"
                 >
                   <motion.div
                     initial={{ y: 20 }}
@@ -1200,41 +1473,7 @@ export function CreateTaskDialog({
                           size="sm"
                           className="h-7 text-xs"
                           disabled={!subtaskTitle.trim()}
-                          onClick={() => {
-                            if (editingSubtaskId) {
-                              setSubtasks((prev) =>
-                                prev.map((s) =>
-                                  s.id === editingSubtaskId
-                                    ? {
-                                        ...s,
-                                        title: subtaskTitle,
-                                        description: subtaskDescription,
-                                        status: subtaskStatus,
-                                        priority: subtaskPriority,
-                                        assignee: subtaskAssignee,
-                                      }
-                                    : s,
-                                ),
-                              );
-                            } else {
-                              const newSubtask = {
-                                id: `sub-${Date.now()}`,
-                                title: subtaskTitle,
-                                description: subtaskDescription,
-                                status: subtaskStatus,
-                                priority: subtaskPriority,
-                                assignee: subtaskAssignee,
-                              };
-                              setSubtasks((prev) => [...prev, newSubtask]);
-                            }
-                            setShowSubtaskForm(false);
-                            setEditingSubtaskId(null);
-                            setSubtaskTitle("");
-                            setSubtaskDescription("");
-                            setSubtaskStatus("backlog");
-                            setSubtaskPriority("");
-                            setSubtaskAssignee("");
-                          }}
+                          onClick={handleSubtaskSubmit}
                         >
                           {editingSubtaskId ? "Update subtask" : "Add subtask"}
                         </Button>
@@ -1268,8 +1507,26 @@ export function CreateTaskDialog({
                 </label>
               )}
 
-              <Button onClick={handleSubmit} disabled={!isValid}>
-                {isEditMode ? "Update Task" : "Create Task"}
+              <Button
+                onClick={handleSubmit}
+                disabled={
+                  !isValid ||
+                  createTaskMutation.isPending ||
+                  updateTaskMutation.isPending ||
+                  createSubtaskMutation.isPending ||
+                  updateSubtaskMutation.isPending ||
+                  deleteSubtaskMutation.isPending
+                }
+              >
+                {createTaskMutation.isPending ||
+                updateTaskMutation.isPending ||
+                createSubtaskMutation.isPending ||
+                updateSubtaskMutation.isPending ||
+                deleteSubtaskMutation.isPending
+                  ? "Saving..."
+                  : isEditMode
+                    ? "Update Task"
+                    : "Create Task"}
               </Button>
             </div>
           </div>

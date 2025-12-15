@@ -1,14 +1,13 @@
 import { eq, and } from "drizzle-orm";
 import z from "zod";
 import { createTRPCRouter, protectedProcedure } from "../trpc";
-import { task, taskUpdate, taskDependency } from "@/server/db/tasks";
+import { task, taskUpdate, taskDependency, subTask } from "@/server/db/tasks";
 import { cycle } from "@/server/db/cycles";
 import {
   createUpdateContent,
   UPDATE_TYPES,
 } from "@/lib/task-updates/update.factory";
 
-// Helper function to avoid circular dependency with api caller
 const registerUpdateHelper = async (
   ctx: any,
   input: {
@@ -41,11 +40,11 @@ const updateTaskHelper = async (
     id: string;
     title?: string;
     description?: string;
-    status?: string;
+    status?: "backlog" | "planned" | "in_progress" | "completed" | "cancelled";
     priority?: string;
     tags?: string[];
-    start_date?: Date;
-    due_date?: Date;
+    start_date?: Date | null;
+    due_date?: Date | null;
     subtasks_ids?: string[];
   },
 ) => {
@@ -129,7 +128,7 @@ const updateTaskHelper = async (
     await registerUpdateHelper(ctx, {
       task_id: input.id,
       content: createUpdateContent("date-change", {
-        newStartDate: input.start_date.toISOString(),
+        newStartDate: input.start_date ? input.start_date.toISOString() : null,
         previousStartDate: prevTask.start_date
           ? prevTask.start_date.toISOString()
           : undefined,
@@ -145,7 +144,7 @@ const updateTaskHelper = async (
     await registerUpdateHelper(ctx, {
       task_id: input.id,
       content: createUpdateContent("date-change", {
-        newDueDate: input.due_date.toISOString(),
+        newDueDate: input.due_date ? input.due_date.toISOString() : null,
         previousDueDate: prevTask.due_date
           ? prevTask.due_date.toISOString()
           : undefined,
@@ -177,17 +176,35 @@ const updateTaskHelper = async (
 };
 
 export const taskRouter = createTRPCRouter({
-  getTasks: protectedProcedure.query(async ({ ctx }) => {
-    return await ctx.db.select().from(task);
-  }),
+  getTasks: protectedProcedure
+    .input(
+      z.object({
+        program_id: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      return await ctx.db
+        .select()
+        .from(task)
+        .where(eq(task.program_id, input.program_id));
+    }),
 
-  getCycles: protectedProcedure.query(async ({ ctx }) => {
-    const cycles = await ctx.db.select().from(cycle);
-    return cycles.map((c) => ({
-      ...c,
-      number: parseInt(c.cycle_number),
-    }));
-  }),
+  getCycles: protectedProcedure
+    .input(
+      z.object({
+        program_id: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const cycles = await ctx.db
+        .select()
+        .from(cycle)
+        .where(eq(cycle.program_id, input.program_id));
+      return cycles.map((c) => ({
+        ...c,
+        number: parseInt(c.cycle_number),
+      }));
+    }),
 
   getTask: protectedProcedure
     .input(
@@ -211,11 +228,13 @@ export const taskRouter = createTRPCRouter({
         id: z.string(),
         title: z.string().optional(),
         description: z.string().optional(),
-        status: z.string().optional(),
+        status: z
+          .enum(["backlog", "planned", "in_progress", "completed", "cancelled"])
+          .optional(),
         priority: z.string().optional(),
         tags: z.array(z.string()).optional(),
-        start_date: z.date().optional(),
-        due_date: z.date().optional(),
+        start_date: z.date().nullable().optional(),
+        due_date: z.date().nullable().optional(),
         subtasks_ids: z.array(z.string()).optional(),
       }),
     )
@@ -230,11 +249,19 @@ export const taskRouter = createTRPCRouter({
           id: z.string(),
           title: z.string().optional(),
           description: z.string().optional(),
-          status: z.string().optional(),
+          status: z
+            .enum([
+              "backlog",
+              "planned",
+              "in_progress",
+              "completed",
+              "cancelled",
+            ])
+            .optional(),
           priority: z.string().optional(),
           tags: z.array(z.string()).optional(),
-          start_date: z.date().optional(),
-          due_date: z.date().optional(),
+          start_date: z.date().nullable().optional(),
+          due_date: z.date().nullable().optional(),
           subtasks_ids: z.array(z.string()).optional(),
         }),
       ),
@@ -378,5 +405,196 @@ export const taskRouter = createTRPCRouter({
     )
     .mutation(async ({ input, ctx }) => {
       return await registerUpdateHelper(ctx, input);
+    }),
+
+  getTasksByTeam: protectedProcedure
+    .input(z.object({ team_id: z.string() }))
+    .query(async ({ input, ctx }) => {
+      const foundTasks = await ctx.db.query.task.findMany({
+        where: eq(task.team_id, input.team_id),
+        with: {
+          priority: true,
+        },
+      });
+
+      return foundTasks;
+    }),
+
+  createTask: protectedProcedure
+    .input(
+      z.object({
+        title: z.string().min(1),
+        description: z.string(),
+        status: z.string(),
+        priority: z.string(),
+        project: z.string(),
+        leader: z.string(),
+        assignees: z.array(z.string()),
+        labels: z.array(z.string()),
+        cycle: z.string(),
+        team: z.string(),
+        program_id: z.string(),
+        start_date: z.date().nullable().optional(),
+        due_date: z.date().nullable().optional(),
+        subtask_ids: z.array(z.string()).optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const newTask = await ctx.db
+        .insert(task)
+        .values({
+          id: crypto.randomUUID(),
+          program_id: input.program_id,
+          cycle_id: input.cycle,
+          project_id: input.project,
+          team_id: input.team,
+          title: input.title,
+          description: input.description || null,
+          lead_id: input.leader || null,
+          assignees_ids: input.assignees,
+          status: input.status as
+            | "backlog"
+            | "planned"
+            | "in_progress"
+            | "completed"
+            | "cancelled",
+          priority: input.priority,
+          tags: input.labels,
+          depends_on: [],
+          start_date: input.start_date ?? null,
+          due_date: input.due_date ?? null,
+          subtasks_ids: input.subtask_ids || [],
+        })
+        .returning();
+
+      if (!newTask[0]) return null;
+
+      // update the current subtask ids to link to the new task
+      for (let subtaskId of input.subtask_ids || []) {
+        await ctx.db
+          .update(subTask)
+          .set({ task_id: newTask[0].id, updatedAt: new Date() })
+          .where(eq(subTask.id, subtaskId));
+      }
+
+      return newTask[0];
+    }),
+
+  createSubtask: protectedProcedure
+    .input(
+      z.object({
+        task_id: z.string(),
+        title: z.string().min(1),
+        description: z.string().optional(),
+        status: z.string(),
+        priority: z.string(),
+        assignee_id: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const newSubtaskId = crypto.randomUUID();
+
+      return await ctx.db
+        .insert(subTask)
+        .values({
+          id: newSubtaskId,
+          task_id: input.task_id,
+          title: input.title,
+          description: input.description || null,
+          status: input.status as
+            | "backlog"
+            | "planned"
+            | "in_progress"
+            | "completed"
+            | "cancelled",
+          priority: input.priority,
+          assignee_id: input.assignee_id || null,
+        })
+        .returning();
+    }),
+
+  getSubtasks: protectedProcedure
+    .input(
+      z.object({
+        task_id: z.string(),
+      }),
+    )
+    .query(async ({ input, ctx }) => {
+      return await ctx.db
+        .select()
+        .from(subTask)
+        .where(eq(subTask.task_id, input.task_id));
+    }),
+
+  deleteTask: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      // Delete the task
+      await ctx.db.delete(task).where(eq(task.id, input.id));
+
+      // Delete related subtasks and updates
+      await ctx.db.delete(subTask).where(eq(subTask.task_id, input.id));
+
+      await ctx.db.delete(taskUpdate).where(eq(taskUpdate.task_id, input.id));
+    }),
+
+  updateSubtask: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        description: z.string().optional(),
+        status: z
+          .enum(["backlog", "planned", "in_progress", "completed", "cancelled"])
+          .optional(),
+        priority: z.string().optional(),
+        assignee_id: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const updatedFields: Partial<typeof subTask.$inferSelect> = {};
+
+      if (input.title !== undefined) {
+        updatedFields.title = input.title;
+      }
+
+      if (input.description !== undefined) {
+        updatedFields.description = input.description;
+      }
+
+      if (input.status !== undefined) {
+        updatedFields.status = input.status;
+      }
+
+      if (input.priority !== undefined) {
+        updatedFields.priority = input.priority;
+      }
+
+      if (input.assignee_id !== undefined) {
+        updatedFields.assignee_id = input.assignee_id;
+      }
+
+      return await ctx.db
+        .update(subTask)
+        .set({
+          ...updatedFields,
+          updatedAt: new Date(),
+        })
+        .where(eq(subTask.id, input.id))
+        .returning();
+    }),
+
+  deleteSubtask: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      await ctx.db.delete(subTask).where(eq(subTask.id, input.id));
     }),
 });

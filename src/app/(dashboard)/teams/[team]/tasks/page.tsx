@@ -12,7 +12,7 @@ export default async function TasksPage({ params }: PageProps) {
 
   const team = await api.teams.getTeam({
     name: teamName,
-    program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
+    program_id: "program-seed-1",
   });
 
   if (!team) {

@@ -107,7 +107,7 @@ export default function TestPage() {
             defaultTeam="design"
             defaultPriority="3"
             defaultProject="3"
-            defaultAssignee="user2"
+            defaultAssignees={["user2"]}
             defaultStatus="planned"
             defaultCycle="2"
             defaultLabels={["2", "3"]}
@@ -163,8 +163,8 @@ export default function TestPage() {
             &quot;3&quot;)
           </div>
           <div>
-            defaultAssignee?: string (e.g., &quot;user1&quot;,
-            &quot;user2&quot;)
+            defaultAssignees?: string[] (e.g., [&quot;user1&quot;],
+            [&quot;user2&quot;])
           </div>
           <div>
             defaultCycle?: string (e.g., &quot;current&quot;, &quot;1&quot;,

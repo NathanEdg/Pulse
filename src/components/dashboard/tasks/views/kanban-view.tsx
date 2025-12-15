@@ -20,15 +20,6 @@ type KanbanViewProps = {
 
 export function KanbanView({ teamName, tasks }: KanbanViewProps) {
   const router = useRouter();
-  const createTaskMutation = clientApi.tasks.createTask.useMutation({
-    onSuccess: () => {
-      toast.success("Task created successfully!");
-      router.refresh();
-    },
-    onError: (error) => {
-      toast.error(`Failed to create task: ${error.message}`);
-    },
-  });
 
   const updateTaskMutation = clientApi.tasks.updateTask.useMutation({
     onSuccess: () => {
@@ -128,23 +119,12 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
           // Task has moved to a different column, update its status
           updateTaskMutation.mutate({
             id: task.id,
-            title: task.title,
-            description: task.description ?? "",
-            status: column.id,
-            priority:
-              typeof originalTask.priority === "object" && originalTask.priority
-                ? (originalTask.priority as { id: string }).id
-                : typeof originalTask.priority === "string"
-                  ? originalTask.priority
-                  : "",
-            project: originalTask.project_id ?? "",
-            leader: originalTask.lead_id ?? "",
-            assignees: originalTask.assignees_ids ?? [],
-            labels: originalTask.tags ?? [],
-            cycle: originalTask.cycle_id ?? "",
-            team: originalTask.team_id ?? "",
-            start_date: originalTask.start_date ?? undefined,
-            due_date: originalTask.due_date ?? undefined,
+            status: column.id as
+              | "backlog"
+              | "planned"
+              | "in_progress"
+              | "completed"
+              | "cancelled",
           });
         }
       });
@@ -211,24 +191,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
         }}
         defaultStatus={taskCreateStatus}
         defaultTeam={teamName}
-        _programId="4287f030-7ee1-4025-bb03-0074fff9afd9"
-        onTaskCreate={(taskData) => {
-          createTaskMutation.mutate({
-            title: taskData.title,
-            description: taskData.description,
-            status: taskData.status,
-            priority: taskData.priority,
-            project: taskData.project,
-            leader: taskData.leader,
-            assignees: taskData.assignees,
-            labels: taskData.labels,
-            cycle: taskData.cycle,
-            team: taskData.team,
-            program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
-            start_date: taskData.startDate ?? undefined,
-            due_date: taskData.endDate ?? undefined,
-          });
-        }}
+        _programId="program-seed-1"
       />
       {editingTask && (
         <CreateTaskDialog
@@ -258,24 +221,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
           defaultLabels={editingTask.tags ?? []}
           defaultStartDate={editingTask.start_date}
           defaultEndDate={editingTask.due_date}
-          _programId="4287f030-7ee1-4025-bb03-0074fff9afd9"
-          onTaskUpdate={(taskData) => {
-            updateTaskMutation.mutate({
-              id: taskData.id,
-              title: taskData.title,
-              description: taskData.description,
-              status: taskData.status,
-              priority: taskData.priority,
-              project: taskData.project,
-              leader: taskData.leader,
-              assignees: taskData.assignees,
-              labels: taskData.labels,
-              cycle: taskData.cycle,
-              team: taskData.team,
-              start_date: taskData.startDate ?? undefined,
-              due_date: taskData.endDate ?? undefined,
-            });
-          }}
+          _programId="program-seed-1"
         />
       )}
       <ConfirmDeleteDialog

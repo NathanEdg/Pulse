@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { PageContainer } from "@/components/util/page-container";
 import {
   ViewSwitcher,
@@ -18,8 +19,31 @@ type TasksPageClientProps = {
 };
 
 export function TasksPageClient({ teamName, tasks }: TasksPageClientProps) {
-  const [view, setView] = useState<ViewType>("kanban");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get("view") as ViewType | null;
+  const [view, setView] = useState<ViewType>(
+    viewParam && ["kanban", "timeline", "list", "calendar"].includes(viewParam)
+      ? viewParam
+      : "kanban",
+  );
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (
+      viewParam &&
+      ["kanban", "timeline", "list", "calendar"].includes(viewParam)
+    ) {
+      setView(viewParam);
+    }
+  }, [viewParam]);
+
+  const handleViewChange = (newView: ViewType) => {
+    setView(newView);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("view", newView);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
 
   return (
     <PageContainer
@@ -35,7 +59,7 @@ export function TasksPageClient({ teamName, tasks }: TasksPageClientProps) {
             <Plus className="h-4 w-4" />
             New Task
           </Button>
-          <ViewSwitcher value={view} onValueChange={setView} />
+          <ViewSwitcher value={view} onValueChange={handleViewChange} />
         </div>
       }
     >

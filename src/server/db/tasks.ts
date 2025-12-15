@@ -45,6 +45,24 @@ export const task = pgTable("task", {
     .notNull(),
 });
 
+export const subTask = pgTable("subtask", {
+  id: text("id").primaryKey(),
+  task_id: text("task_id")
+    .notNull()
+    .references(() => task.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: taskStatus("status").notNull(),
+  priority: text("priority").notNull(),
+  assignee_id: text("assignee_id").references(() => user.id),
+  createdAt: timestamp("created_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+  updatedAt: timestamp("updated_at")
+    .$defaultFn(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
 export const taskUpdate = pgTable("task_update", {
   id: text("id").primaryKey(),
   task_id: text("task_id")

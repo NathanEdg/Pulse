@@ -42,7 +42,7 @@ export function CreateTeamDialog({
         color: values.color,
         icon: values.icon,
         private: values.isPrivate,
-        program_id: "4287f030-7ee1-4025-bb03-0074fff9afd9",
+        program_id: "program-seed-1",
       },
       {
         onSuccess: () => {
