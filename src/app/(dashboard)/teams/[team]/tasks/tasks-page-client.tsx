@@ -12,6 +12,7 @@ import { CreateTaskDialog } from "@/components/dashboard/tasks/create-task-dialo
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import type { api } from "@/trpc/server";
+import { useActiveProgram } from "@/hooks/use-active-program";
 
 type TasksPageClientProps = {
   teamName: string;
@@ -22,6 +23,7 @@ export function TasksPageClient({ teamName, tasks }: TasksPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const viewParam = searchParams.get("view") as ViewType | null;
+  const { programId } = useActiveProgram();
   const [view, setView] = useState<ViewType>(
     viewParam && ["kanban", "timeline", "list", "calendar"].includes(viewParam)
       ? viewParam
@@ -68,6 +70,7 @@ export function TasksPageClient({ teamName, tasks }: TasksPageClientProps) {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         defaultTeam={teamName}
+        _programId={programId ?? ""}
       />
     </PageContainer>
   );

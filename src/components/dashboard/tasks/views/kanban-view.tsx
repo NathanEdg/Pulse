@@ -23,15 +23,6 @@ type KanbanViewProps = {
 export function KanbanView({ teamName, tasks }: KanbanViewProps) {
   const router = useRouter();
   const { programId } = useActiveProgram();
-  const createTaskMutation = clientApi.tasks.createTask.useMutation({
-    onSuccess: () => {
-      toast.success("Task created successfully!");
-      router.refresh();
-    },
-    onError: (error) => {
-      toast.error(`Failed to create task: ${error.message}`);
-    },
-  });
 
   const updateTaskMutation = clientApi.tasks.updateTask.useMutation({
     onSuccess: () => {
@@ -163,9 +154,7 @@ export function KanbanView({ teamName, tasks }: KanbanViewProps) {
         }}
         defaultStatus={taskCreateStatus}
         defaultTeam={teamName}
-        _programId="program-seed-1"
         _programId={programId ?? undefined}
-        }}
       />
       {editingTask && (
         <CreateTaskDialog
